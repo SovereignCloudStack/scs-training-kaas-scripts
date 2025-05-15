@@ -21,25 +21,26 @@ copy, fill it in, and pass it to the scripts.
 * 00-bootstrap-vm-cs.sh: Install the needed software to be able to do
   cluster management on this host. (Developed for Debian 12.)
   This is only needed if you do not have the needed tools preinstalled.
-* 01-deploy-capi.sh: Install ORC and CAPI.
-* 02-deploy-cso.sh: Install the Cluster Stack Operator.
+* 01-kind-cluster.sh: Create kind cluster
+* 02-deploy-capi.sh: Install ORC and CAPI.
+* 03-deploy-cso.sh: Install the Cluster Stack Operator.
 
 ### Once per OpenStack Project in which we want to install clusters (NS)
-* 03-cloud-secret.sh: Create namespace and secrets to work with the
+* 04-cloud-secret.sh: Create namespace and secrets to work with the
   wanted OpenStack project.
 
 ### Once per Kubernetes aka CS version (maj.min)
-* 04-deploy-cstack.sh: Create the Cluster Stack which is a template
+* 05-deploy-cstack.sh: Create the Cluster Stack which is a template
   for various clusters with the same major minor version of k8s.
   Should trigger cluster class creation and image registration.
-* 05-wait-clusterclass.sh: Wait for the cluster class (not yet implemented)
+* 06-wait-clusterclass.sh: Wait for the cluster class (not yet implemented)
 
 ### Once per cluster
-* 06-create-cluster.sh: Create a workload cluster as per all the settings
+* 07-create-cluster.sh: Create a workload cluster as per all the settings
   that are passed.
-* 07-wait-cluster.sh: Wait for the workload cluster (not yet implemented)
+* 08-wait-cluster.sh: Wait for the workload cluster (not yet implemented)
 
-* 16-delete-cluster.sh: Remove cluster again.
+* 17-delete-cluster.sh: Remove cluster again.
 
 
   
