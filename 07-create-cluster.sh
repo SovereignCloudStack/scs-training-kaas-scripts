@@ -50,5 +50,8 @@ spec:
         - class: default-worker
           name: md-0
           replicas: $CL_WRKRNODES
+    variables:
+      - name: apiserver_loadbalancer
+        value: "octavia-ovn"
 EOF
 kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
