@@ -13,7 +13,7 @@ fi
 source "$SET"
 # Create namespace
 test -n "$CS_NAMESPACE"
-kubectl create namespace "$CS_NAMESPACE"
+kubectl create namespace "$CS_NAMESPACE" || true
 # Use csp helper chart to create cloud secret
 # Notes on expected clouds.yaml:
 # - It should have the secrets (which you often keep in secure.yaml instead) merged into it
@@ -21,11 +21,10 @@ kubectl create namespace "$CS_NAMESPACE"
 # - We will detect a cacert in there and pass it to the helper chart
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
 CA=$(grep -A11 "^  $OS_CLOUD:" $CLOUDS_YAML | grep 'cacert:' | sed 's/^ *cacert: //')
-OS_CACERT=${OS_CACERT:-CA}
+OS_CACERT=${OS_CACERT:-$CA}
 if test -n "$OS_CACERT"; then
-	SETCACERT="--set cacert=$(cat $OS_CACERT)"
+	# Call the helm helper chart now
+	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML --set cacert="$(cat $OS_CACERT)"
 else
-	unset SETCACERT
+	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML
 fi
-# Call the helm helper chart now
-helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML $SETCACERT
