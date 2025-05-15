@@ -24,5 +24,5 @@ controllerManager:
 EOF
 # Install Cluster Stack Operator (CSO) with above values
 helm upgrade -i cso -n cso-system \
-	--create-namespace -- --values ~/tmp/cso-rbac.yaml \
+	--create-namespace --values ~/tmp/cso-rbac.yaml \
 	oci://registry.scs.community/cluster-stacks/cso

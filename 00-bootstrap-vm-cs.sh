@@ -27,29 +27,94 @@ test_sha256()
 # Usage install_via_download_bin URL sha256 [newname]
 install_via_download_bin()
 {
-	cd ~/Download
-	curl -LO "$1" || return
+	cd ~/Download || { echo "ERROR: Failed to cd into ~/Download"; return 1; }
+	echo "Downloading $1..."
+	curl -LO "$1" || { echo "ERROR: Failed to download $1"; return 1; }
 	FNM="${1##*/}"
-	if ! test_sha256 "$FNM" "$2"; then echo "Checksum mismatch for ${FNM}" 1>&2; return 1; fi
-	chmod +x "$FNM"
-	sudo mv "$FNM" /usr/local/bin/"$3"
+	if ! test_sha256 "$FNM" "$2"; then echo "ERROR: Checksum mismatch for ${FNM}" 1>&2; return 1; fi
+	chmod +x "$FNM" || { echo "ERROR: Failed to set executable permissions on $FNM"; return 1; }
+	
+	# Determine target filename
+	local TARGET="/usr/local/bin/${FNM}"
+	if [ -n "$3" ] && [ "$3" != "." ]; then
+		TARGET="/usr/local/bin/$3"
+	fi
+	
+	echo "Moving $FNM to $TARGET"
+	sudo mv "$FNM" "$TARGET" || { echo "ERROR: Failed to move $FNM to $TARGET"; return 1; }
+	echo "Successfully installed $TARGET"
 }
 
 # Usage install_via_download_bin URL sha256 extrpath [newname]
 install_via_download_tgz()
 {
-	cd ~/Download
-	curl -LO "$1" || return
+	cd ~/Download || { echo "ERROR: Failed to cd into ~/Download"; return 1; }
+	echo "Downloading $1..."
+	curl -LO "$1" || { echo "ERROR: Failed to download $1"; return 1; }
 	FNM="${1##*/}"
-	if ! test_sha256 "$FNM" "$2"; then echo "Checksum mismatch for ${FNM}" 1>&2; return 1; fi
-	tar xvzf "$FNM"
-	sudo mv "$3" /usr/local/bin/"$4"
+	if ! test_sha256 "$FNM" "$2"; then echo "ERROR: Checksum mismatch for ${FNM}" 1>&2; return 1; fi
+	
+	echo "Extracting $FNM..."
+	tar xzf "$FNM" || { echo "ERROR: Failed to extract $FNM"; return 1; }
+	
+	# Determine target filename
+	local TARGET="/usr/local/bin/${3##*/}"
+	if [ -n "$4" ] && [ "$4" != "." ]; then
+		TARGET="/usr/local/bin/$4"
+	fi
+	
+	echo "Moving $3 to $TARGET"
+	sudo mv "$3" "$TARGET" || { 
+		echo "ERROR: Failed to move $3 to $TARGET"; 
+		echo "Looking for file to move...";
+		find . -name "${3##*/}" -type f;
+		return 1; 
+	}
+	echo "Successfully installed $TARGET"
 }
 
 # Debian 12 (Bookworm)
 mkdir -p ~/Download
+# Ensure Download directory exists and is accessible
+if [ ! -d ~/Download ]; then
+    echo "Failed to create ~/Download directory, creating it again"
+    mkdir -p ~/Download
+    if [ ! -d ~/Download ]; then
+        echo "ERROR: Could not create ~/Download directory"
+        exit 1
+    fi
+fi
+# Make sure we have write permissions
+touch ~/Download/.write_test && rm ~/Download/.write_test
 INSTCMD="apt-get install -y --no-install-recommends --no-install-suggests"
-DEB12_PKGS=(docker.io golang jq yq git gh python3-openstackclient)
+
+# Detect Ubuntu version
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_NAME=$ID
+    OS_VERSION=$VERSION_ID
+else
+    OS_NAME="unknown"
+    OS_VERSION="unknown"
+fi
+
+# Set packages based on OS version
+if [ "$OS_NAME" = "ubuntu" ] && [ "$OS_VERSION" = "22.04" ]; then
+    echo "Detected Ubuntu 22.04"
+    # For Ubuntu 22.04, use Docker's official repository instead of docker.io
+    echo "Setting up Docker repository..."
+    sudo apt-get install -y ca-certificates curl gnupg
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
+    DEB12_PKGS=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin golang jq git gh python3-openstackclient)
+else
+    echo "Using default package list for Debian 12 or other distributions"
+    DEB12_PKGS=(docker.io golang jq git gh python3-openstackclient)
+fi
+
 DEB12_TGZS=("https://get.helm.sh/helm-v3.17.1-${OS}-${ARCH}.tar.gz")
 DEB12_TCHK=("3b66f3cd28409f29832b1b35b43d9922959a32d795003149707fea84cbcd4469")
 DEB12_TOLD=("${OS}-${ARCH}/helm")
@@ -67,9 +132,11 @@ DEB12_BNEW=("kind" "." "clusterctl")
 sudo apt-get update
 install_via_pkgmgr "${DEB12_PKGS[@]}" || exit 1
 for i in $(seq 0 $((${#DEB12_TGZS[*]}-1))); do
+	echo "Processing tarball ${DEB12_TGZS[$i]}..."
 	install_via_download_tgz "${DEB12_TGZS[$i]}" "${DEB12_TCHK[$i]}" "${DEB12_TOLD[$i]}" "${DEB12_TNEW[$i]}" || exit 2
 done
 for i in $(seq 0 $((${#DEB12_BINS[*]}-1))); do
+	echo "Processing binary ${DEB12_BINS[$i]}..."
 	install_via_download_bin "${DEB12_BINS[$i]}" "${DEB12_BCHK[$i]}" "${DEB12_BNEW[$i]}" || exit 3
 done
 
