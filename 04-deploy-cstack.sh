@@ -15,14 +15,14 @@ source "$SET"
 # Sanity checks 
 if test -z "$CS_MAINVER"; then echo "Configure CS_MAINVER"; exit 2; fi
 if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
-# if test -z "$CS_PATCHVER"; then echo "Configure CS_PATCHVER"; exit 4; fi
+# if test -z "$CL_PATCHVER"; then echo "Configure CL_PATCHVER"; exit 4; fi
 # Create ClusterStack yaml
 cat > ~/tmp/clusterstack-$CS_MAINVER.yaml <<EOF
 apiVersion: clusterstack.x-k8s.io/v1alpha1
 kind: ClusterStack
 metadata:
   name: openstack
-  namespace: cluster
+  namespace: "$CS_NAMESPACE"
 spec:
   provider: openstack
   name: scs
@@ -35,3 +35,9 @@ spec:
 EOF
 # Apply
 kubectl apply -f ~/tmp/clusterstack-$CS_MAINVER.yaml
+# Does the clusterclass exist?
+sleep 1
+echo "The clusterclass should exist now"
+set -x
+kubectl get clusterclasses -n "$CS_NAMESPACE"
+kubectl get images -n "$CS_NAMESPACE"
