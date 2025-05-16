@@ -20,7 +20,7 @@ kubectl create namespace "$CS_NAMESPACE" || true
 # - The cloud should be called openstack
 # - We will detect a cacert in there and pass it to the helper chart
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
-CA=$(grep -A11 "^  $OS_CLOUD:" $CLOUDS_YAML | grep 'cacert:' | sed 's/^ *cacert: //')
+CA=$(grep -A12 "^  *$OS_CLOUD: *$" $CLOUDS_YAML | grep 'cacert:' | sed 's/^ *cacert: //')
 OS_CACERT=${OS_CACERT:-$CA}
 if test -n "$OS_CACERT"; then
 	# Call the helm helper chart now
