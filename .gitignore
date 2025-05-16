@@ -4,7 +4,7 @@
 CLAUDE.md
 
 # Certificate files
-*.cert.*
+*.cert
 
 # Environment files
 cluster-settings.env
