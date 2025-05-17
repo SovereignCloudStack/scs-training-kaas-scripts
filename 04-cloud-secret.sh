@@ -24,19 +24,18 @@ kubectl create namespace "$CS_NAMESPACE" || true
 # - The cloud should be called openstack
 # - We will detect a cacert in there and pass it to the helper chart
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
-echo "Reading cloud credentials from $CLOUDS_YAML"
-
-CA=$(grep -A11 "^  $OS_CLOUD:" $CLOUDS_YAML | grep 'cacert:' | sed 's/^ *cacert: //')
+CA=$(grep -A12 "^\s\s*$OS_CLOUD:\s*\$" $CLOUDS_YAML | grep 'cacert:' | head -n1 | sed 's/^ *cacert: //')
 OS_CACERT=${OS_CACERT:-$CA}
-
-echo "Creating OpenStack cloud secret in namespace $CS_NAMESPACE..."
+# FIXME: We will provide more settings in cluster-settings.env later, hardcode it for now
+#if test "$CS_CCMLB=octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
+OCTOVN="--set octavia_ovn=true"
 if test -n "$OS_CACERT"; then
-	echo "Using CA certificate from $OS_CACERT"
+	echo "Found CA cert file configured to be $OS_CACERT"
+	if test ! -r "$OS_CACERT"; then echo "... but could not access it. FATAL."; exit 3; fi
 	# Call the helm helper chart now
-	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML --set cacert="$(cat $OS_CACERT)"
+	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML --set cacert="$(cat $OS_CACERT)" $OCTOVN
 else
-	echo "No CA certificate specified"
-	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML
+	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f $CLOUDS_YAML $OCTOVN
 fi
 
 echo "Cloud secret created successfully."
