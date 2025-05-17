@@ -11,6 +11,43 @@ everything in one script is that you register cloud secrets or install CAPI
 much less often than install cluster classes, which happens much less often
 than creating clusters.
 
+## Prerequisites and Setup
+
+### Obtaining the Cloud-in-a-Box Certificate
+
+If you're using SCS Cloud-in-a-Box (CiaB), you'll need to obtain the certificate. The certificates are located on the CiaB manager host at `/etc/ssl/certs/ca-certificates.crt`.
+
+To obtain it:
+
+1. SSH into your CiaB manager host (usually as user `dragon`)
+2. Copy the certificate file:
+   ```bash
+   scp dragon@<CiaB-IP>:/etc/ssl/certs/ca-certificates.crt ./ca-certificates.crt
+   ```
+3. Extract the last certificate from the file (the CiaB-specific certificate):
+   ```bash
+   # Extract the last certificate from the bundle
+   tac ca-certificates.crt | awk '/-----BEGIN CERTIFICATE-----/{flag=1} flag{print} /-----END CERTIFICATE-----/{exit}' | tac > ciab.cert
+   ```
+4. Place this `ciab.cert` file in the same directory as your scripts
+
+### Preparing Configuration Files
+
+Before running the main scripts, you may want to use the utility script to prepare your configuration:
+
+1. Place your `ciab.cert` file (or any other OpenStack certificate with `.cert` extension) in the script directory
+2. Create your `clouds.yaml` file from the template
+3. Run the preparation script:
+   ```bash
+   ./99-prepare-files.sh
+   ```
+
+This script will:
+- Create the `~/.config/openstack` directory if it doesn't exist
+- Copy any `.cert` files to the config directory
+- Update `clouds.yaml` to reference the certificate with its absolute path
+- Copy the updated `clouds.yaml` to the config directory
+
 ## Settings
 There is a [cluster-settings-template.env](cluster-settings-template.env) file
 that contains the parameters typically adjusted by users. Please create a
@@ -28,6 +65,7 @@ which includes example values for all parameters.
 - `CS_NAMESPACE=cluster`: Namespace for cluster resources
 - `CLOUDS_YAML=~/.config/openstack/clouds.yaml`: Path to OpenStack credentials file
 - `OS_CLOUD=${OS_CLOUD:-openstack}`: Name of the cloud in the clouds.yaml file
+- `CS_CCMLB=octavia-ovn`: Cloud controller manager load balancer type (octavia-ovn or octavia-amphora)
 
 #### Cluster Stack Settings
 - `CS_MAINVER=`: Kubernetes major.minor version (e.g., 1.32)
@@ -44,7 +82,6 @@ which includes example values for all parameters.
 - `CL_WRKRNODES=1`: Number of worker nodes
 - `CL_WORKER_CLASS=default-worker`: Worker class used for machine deployments
 - `CL_LB_TYPE=octavia-ovn`: Load balancer type (depends on OpenStack environment)
-- `CL_WAIT_TIMEOUT=3600`: Timeout for waiting on cluster provisioning (seconds)
 
 ## Scripts
 ### Once per management host
@@ -57,7 +94,8 @@ which includes example values for all parameters.
 
 ### Once per OpenStack Project in which we want to install clusters (NS)
 * `04-cloud-secret.sh`: Create namespace and secrets to work with the
-  wanted OpenStack project.
+  wanted OpenStack project. Uses the `CS_CCMLB` setting to configure
+  the cloud controller manager load balancer type.
 
 ### Once per Kubernetes aka CS version (maj.min)
 * `05-deploy-cstack.sh`: Create the Cluster Stack which is a template
@@ -68,6 +106,13 @@ which includes example values for all parameters.
 ### Once per cluster
 * `07-create-cluster.sh`: Create a workload cluster as per all the settings
   that are passed.
-* `08-wait-cluster.sh`: Wait for the workload cluster to be ready and save kubeconfig
+* `08-wait-cluster.sh`: Check cluster status and save kubeconfig if ready.
+  This script no longer waits in a loop but provides immediate status
+  feedback. If the cluster is ready, it saves the kubeconfig to
+  `~/.kube/<namespace>.<cluster-name>` (without the .yaml extension).
 
 * `17-delete-cluster.sh`: Remove cluster when no longer needed.
+
+### Utility scripts
+* `99-prepare-files.sh`: Prepare configuration files by copying certificates
+  and updating paths in clouds.yaml
