@@ -26,9 +26,8 @@ kubectl create namespace "$CS_NAMESPACE" || true
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
 CA=$(grep -A12 "^\s\s*$OS_CLOUD:\s*\$" $CLOUDS_YAML | grep 'cacert:' | head -n1 | sed 's/^ *cacert: //')
 OS_CACERT=${OS_CACERT:-$CA}
-# FIXME: We will provide more settings in cluster-settings.env later, hardcode it for now
-#if test "$CS_CCMLB=octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
-OCTOVN="--set octavia_ovn=true"
+
+if test "$CS_CCMLB" = "octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
 if test -n "$OS_CACERT"; then
 	echo "Found CA cert file configured to be $OS_CACERT"
 	if test ! -r "$OS_CACERT"; then echo "... but could not access it. FATAL."; exit 3; fi

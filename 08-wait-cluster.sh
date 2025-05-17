@@ -1,5 +1,5 @@
 #!/bin/bash
-# Wait for cluster to be ready and save kubeconfig
+# Check cluster status and save kubeconfig
 set -e
 
 # We need settings
@@ -19,67 +19,43 @@ fi
 # Read settings -- make sure you can trust it
 source "$SET"
 
-# Display initial cluster state
-echo "Checking initial state of cluster $CL_NAME in namespace $CS_NAMESPACE..."
+# Display cluster state
+echo "Checking state of cluster $CL_NAME in namespace $CS_NAMESPACE..."
+echo
+
+# Show cluster description
 clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME
+echo
 
-# Wait for cluster to be ready
-echo "Waiting for cluster $CL_NAME to be ready..."
-set -x
-
-TIMEOUT=3600  # 60 minutes timeout
-START_TIME=$(date +%s)
-READY=false
-
-# Disable command echo for cleaner output
-set +x
-echo "Will timeout after $((TIMEOUT/60)) minutes if not ready"
-
-while [ "$READY" = "false" ]; do
-  # Check if timeout has been reached
-  CURRENT_TIME=$(date +%s)
-  ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
-  ELAPSED_MINUTES=$((ELAPSED_TIME/60))
-  ELAPSED_SECONDS=$((ELAPSED_TIME%60))
-  
-  if [ $ELAPSED_TIME -gt $TIMEOUT ]; then
-    echo "Timeout waiting for cluster to be ready after $ELAPSED_MINUTES minutes"
-    exit 1
-  fi
-  
-  # Check cluster status using kubectl instead of clusterctl json output
-  if kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME -o jsonpath='{.status.phase}' 2>/dev/null; then
-    CLUSTER_STATUS=$(kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME -o jsonpath='{.status.phase}' 2>/dev/null)
-    echo "Current cluster status: $CLUSTER_STATUS"
-  else
-    CLUSTER_STATUS="Unknown"
-    echo "Current cluster status: Unknown (cluster resource may not be fully created yet)"
-  fi
-  
-  # Check if the cluster is ready based on status
-  if [ "$CLUSTER_STATUS" = "Provisioned" ]; then
-    READY=true
-    echo "Cluster is ready!"
-  else
-    # Show current cluster state
-    echo "Current cluster details:"
-    clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME
-    echo "Waiting for cluster to be ready... (elapsed: $ELAPSED_MINUTES minutes, $ELAPSED_SECONDS seconds)"
-    sleep 30
-  fi
-done
-
-# Get kubeconfig once the cluster is ready
-echo "Creating ~/.kube directory if needed..."
-mkdir -p ~/.kube
-
-echo "Saving kubeconfig to ~/.kube/$CS_NAMESPACE.$CL_NAME.yaml"
-clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > ~/.kube/$CS_NAMESPACE.$CL_NAME.yaml
-chmod 600 ~/.kube/$CS_NAMESPACE.$CL_NAME.yaml
-
-echo "Cluster $CL_NAME is ready and kubeconfig has been saved"
-echo "You can access the cluster with: export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME.yaml"
-
-# Display a quick cluster summary
-echo "Displaying cluster info:"
-KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME.yaml kubectl cluster-info
+# Get cluster status if available
+if kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME &>/dev/null; then
+    CLUSTER_STATUS=$(kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME -o jsonpath='{.status.phase}')
+    echo "Cluster status: $CLUSTER_STATUS"
+    
+    # If cluster is ready, save kubeconfig
+    if [ "$CLUSTER_STATUS" = "Provisioned" ]; then
+        echo "Cluster is ready!"
+        
+        # Get kubeconfig
+        echo "Creating ~/.kube directory if needed..."
+        mkdir -p ~/.kube
+        
+        echo "Saving kubeconfig to ~/.kube/$CS_NAMESPACE.$CL_NAME"
+        clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > ~/.kube/$CS_NAMESPACE.$CL_NAME
+        chmod 600 ~/.kube/$CS_NAMESPACE.$CL_NAME
+        
+        echo "Kubeconfig has been saved"
+        echo "You can access the cluster with: export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME"
+        echo
+        
+        # Display cluster info
+        echo "Displaying cluster info:"
+        KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME kubectl cluster-info
+    else
+        echo "Cluster is not yet ready (status: $CLUSTER_STATUS)"
+        echo "Run this script again after some time to check status and save kubeconfig when ready"
+    fi
+else
+    echo "Cluster $CL_NAME not found or not accessible in namespace $CS_NAMESPACE"
+    echo "Please check if the cluster has been created and you have the necessary permissions"
+fi
