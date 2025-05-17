@@ -1,0 +1,11 @@
+**/.claude/settings.local.json
+
+# Claude's instructions file
+CLAUDE.md
+
+# Certificate files
+*.cert
+
+# Environment files
+cluster-settings.env
+clouds.yaml

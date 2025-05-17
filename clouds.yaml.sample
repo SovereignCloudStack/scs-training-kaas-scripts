@@ -1,0 +1,14 @@
+clouds:
+  openstack:
+    auth:
+      auth_url: "https://api.in-a-box.cloud:5000/v3"
+      username: "test"
+      password: "test"
+      project_name: "test"
+      project_domain_name: "Default"
+      user_domain_name: "Default"
+    region_name: "RegionOne"
+    interface: "public"
+    identity_api_version: 3
+    verify: false  # Skip TLS verification for self-signed certs
+    cacert: "/path/to/ca-bundle.crt"  

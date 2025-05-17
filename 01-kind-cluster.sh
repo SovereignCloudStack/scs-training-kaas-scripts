@@ -1,4 +1,11 @@
 #!/bin/bash
+# Create a local kind (Kubernetes in Docker) cluster
 set -e
-# Create kind cluster
+
+echo "Creating a new kind cluster..."
 kind create cluster
+
+echo "Verifying cluster status..."
+kubectl cluster-info
+
+echo "Kind cluster ready."
