@@ -18,9 +18,12 @@ source "$THISDIR/yaml_parse.sh"
 # Create namespace
 test -n "$CS_NAMESPACE"
 kubectl create namespace "$CS_NAMESPACE" || true
+# Default clouds.yaml location
+CLOUDS_YAML=${CLOUDS_YAML:-~/.config/openstack/clouds.yaml}
 # Use csp helper chart to create cloud secret
 # Notes on expected clouds.yaml:
 # - It should have the secrets (which you often keep in secure.yaml instead) merged into it
+# 	NOTE: This will only work if the auth section is the last entry for this cloud in clouds.yaml
 # - The cloud should be called openstack
 # - We will detect a cacert in there and pass it to the helper chart
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
@@ -29,18 +32,34 @@ OS_CACERT="${OS_CACERT:-$CA}"
 # Extract auth parts from secure.yaml if existent, assume same indentation
 SEC_YAML="${CLOUDS_YAML%clouds.yaml}secure.yaml"
 if test -r "$SEC_YAML"; then SECRETS=$(RMVTREE=1 RMVCOMMENT=1 extract_yaml clouds.$OS_CLOUD.auth < $SEC_YAML || true); fi
-# TODO:
-# We need a project_id in auth, determine it and add
-# - Alternative would be to create an application credential
-# TODO:
+if test -n "$SECRETS"; then
+	echo "# Appending secrets from secure.yaml to clouds.yaml"
+fi
+# Determine whether we need to add project ID
+RAW_CLOUD=$(extract_yaml clouds.$OS_CLOUD <$CLOUDS_YAML)
+if ! echo "$RAW_CLOUD" | grep -q "^\s*project_id:"; then
+	# Need openstack CLI for this
+	PROJECT_NAME=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\s*project_name: //')
+	PROJECT_ID=$(openstack project show $PROJECT_NAME -c id -f value | tr -d '\r')
+	INDENT=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\(\s*\)project_name:.*$/\1/')
+	SECRETS=$(echo -en "${INDENT}project_id: $PROJECT_ID\n$SECRETS")
+	echo "# Appending project_id: $PROJECT_ID to clouds.yaml"
+fi
 # We need a region_name, add it in
-#
+if ! echo "$RAW_CLOUD" | grep -q '^\s*region_name:'; then
+	# Need openstack CLI for this
+	REGION=$(openstack region list -c Region -f value | head -n1 | tr -d '\r')
+	INDENT=$(echo "$RAW_CLOUD" | grep '^\s*auth:' | sed 's/^\(\s*\)auth:.*$/\1/')
+	export INSERT="${INDENT}region_name: $REGION"
+	echo "# Inserting region_name: $REGION to clouds.yaml"
+fi
 # Construct a clouds.yaml (mode 0600):
 # - Only extracting one cloud addressed by $OS_CLOUD
 # - By merging secrets in from secure.yaml
 # - By renaming it to openstack (current CS limitation)
 # - By removing cacert setting
 # Store it securely in ~/tmp/clouds-$OS_CLOUD.yaml
+echo "# Generating ~/tmp/clouds-$OS_CLOUD.yaml ..."
 OLD_UMASK=$(umask)
 umask 0177
 APPEND="$SECRETS" RMVCOMMENT=1 REMOVE=cacert extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
@@ -49,7 +68,7 @@ umask $OLD_UMASK
 #if test "$CS_CCMLB=octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
 OCTOVN="--set octavia_ovn=true"
 if test -n "$OS_CACERT"; then
-	echo "Found CA cert file configured to be \"$OS_CACERT\""
+	echo "# Found CA cert file configured to be \"$OS_CACERT\""
 	OS_CACERT="$(ls ${OS_CACERT/\~/$HOME})"
 	# This will error out as needed
 	# Extract last cert if things get too long (heuristic!)
