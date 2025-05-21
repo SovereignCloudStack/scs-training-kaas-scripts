@@ -1,0 +1,16 @@
+--- cinder-controller.old.yaml	2025-05-21 15:06:02.729428914 +0000
++++ cinder-controller.yaml	2025-05-21 15:14:06.215467738 +0000
+@@ -147,5 +147,5 @@ spec:
+           value: unix://csi/csi.sock
+         - name: CLOUD_CONFIG
+-          value: /etc/kubernetes/cloud.conf
++          value: /etc/config/cloud.conf
+         - name: CLUSTER_NAME
+           value: kgcluster131
+@@ -177,5 +177,5 @@ spec:
+           name: cacert
+           readOnly: true
+-        - mountPath: /etc/kubernetes
++        - mountPath: /etc/config
+           name: cloud-config
+           readOnly: true
