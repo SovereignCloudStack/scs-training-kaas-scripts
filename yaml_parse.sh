@@ -4,13 +4,43 @@
 # We do some (incomplete) YAML parsing in bash as helper to 04-cloud-secret.sh
 # to extract and construct a conforming clouds.yaml with exactly one
 # openstack entry.
-# This is SLOW by walking a file line by line, using several grep calls per line,
-# which is a fork.
-# Could be optimized by doing the simple things in bash, but this is not urgent.
+# This used to be SLOW by using several grep calls (forks) per line.
+# Optimized a bit using three helpers; still going line by line in bash, so expect
+# 2s for 1000 lines of clouds.yaml or so.
 # 
 # (c) Kurt Garloff <s7n@garloff.de>, 5/2025
 # SPDX-License-Identifier: CC-BY-SA-4.0
-#
+
+# linestart detection
+# $1: linestart to look for
+# $2: string to search in
+startswith()
+{
+	case "$2" in
+		"$1"*)
+			return 0;;
+	esac
+	return 1
+}
+
+# emptyline helper
+# $1: line
+islineempty()
+{
+	local LN
+	IFS="	 " read LN < <(echo "$1")
+	if test -z "$LN"; then return 0; else return 1; fi
+}
+
+# comment helper
+# $1: line
+islinecomment()
+{
+	local LN
+	IFS="	 " read LN < <(echo "$1")
+	if test "${LN:0:1}" = "#"; then return 0; else return 1; fi
+}
+
 # Helper: Parse YAML (recursive)
 #
 # We take two parameters
@@ -36,17 +66,20 @@ extract_yaml_rec()
 	while IFS="" read line; do
 		let LNNO+=1
 		# Ignore empty lines
-		if echo "$line" | grep '^\s*$' >/dev/null 2>&1; then continue; fi
+		#if echo "$line" | grep -q '^\s*$'; then continue; fi
+		if islineempty "$line"; then continue; fi
 		# First line of new block: We need more indentation ...
 		if test "$more" = "1"; then
-		       if ! echo "$line" | grep "^$previndent\s" >/dev/null 2>&1; then return; fi
+		       if ! echo "$line" | grep -q "^$previndent\s"; then return; fi
 		       more=$(echo "$line" | sed "s/^$previndent\\(\s*\\)[^\s].*\$/\\1/")
 		       #echo "$previndent$more# $LNNO: New indent level"
 		fi
 		# Detect less indentation than wanted, return
-		if ! echo "$line" | grep "^$previndent$more" >/dev/null 2>&1; then return; fi
+		#if ! echo "$line" | grep -q "^$previndent$more"; then return; fi
+		if ! startswith "$previndent$more" "$line"; then return; fi
 		# Strip comments if requested
-		if test -n "$RMVCOMMENT" && echo "$line" | grep '^\s*#' >/dev/null 2>&1; then continue; fi
+		#if test -n "$RMVCOMMENT" && echo "$line" | grep -q '^\s*#'; then continue; fi
+		if test -n "$RMVCOMMENT" && islinecomment "$line"; then continue; fi
 		# OK, we we have at least the indentation level needed
 		# 3 cases:
 		# (a) We are prior to finding the right block, continue searching
@@ -58,13 +91,15 @@ extract_yaml_rec()
 		# got here, just output until the less indentation clause above indicates the end
 		if test -z "$1"; then
 			#echo "$previndent$more# $LNNO: Outputing block"
-			if test -z "$REMOVE" || ! echo "$line" | grep "^$previndent$more$REMOVE:" >/dev/null 2>&1; then
+			#if test -z "$REMOVE" || ! echo "$line" | grep -q "^$previndent$more$REMOVE:"; then
+			if test -z "$REMOVE" || ! startswith "$previndent$more$REMOVE:" "$line"; then
 				echo "$line"
 			fi
 			continue
 		fi
 		# b2: Search for the keyword
-		if echo "$line" | grep "^$previndent$more$1:" >/dev/null 2>&1; then
+		#if echo "$line" | grep -q "^$previndent$more$1:"; then
+		if startswith "$previndent$more$1:" "$line"; then
 			#echo "$previndent$more# $LNNO: Found keyword $1"
 			# Output tree unless we suppress it
 			if test -z "$RMVTREE"; then
@@ -72,7 +107,7 @@ extract_yaml_rec()
 			else
 				# At the leaf, we may hold a value
 				if test -z "$2"; then
-					echo "$line" | grep --color=never "^$previndent$more$1: [^\\s]" 2>/dev/null
+					echo "$line" | grep --color=never "^$previndent$more$1: [^\\s]"
 				fi
 			fi
 			shift
