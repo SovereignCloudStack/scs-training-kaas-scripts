@@ -62,7 +62,7 @@ which includes example values for all parameters.
 - `CSO_HELM_REPO=oci://registry.scs.community/cluster-stacks/cso`: Helm chart repository for CSO
 
 #### Namespace and Project Settings
-- `CS_NAMESPACE=cluster`: Namespace for cluster resources
+- `CS_NAMESPACE=clusterns`: Namespace for cluster resources
 - `CLOUDS_YAML=~/.config/openstack/clouds.yaml`: Path to OpenStack credentials file
 - `OS_CLOUD=${OS_CLOUD:-openstack}`: Name of the cloud in the clouds.yaml file
 - `CS_CCMLB=octavia-ovn`: Cloud controller manager load balancer type (octavia-ovn or octavia-amphora)
@@ -81,7 +81,7 @@ which includes example values for all parameters.
 - `CL_CTRLNODES=1`: Number of control plane nodes
 - `CL_WRKRNODES=1`: Number of worker nodes
 - `CL_WORKER_CLASS=default-worker`: Worker class used for machine deployments
-- `CL_LB_TYPE=octavia-ovn`: Load balancer type (depends on OpenStack environment)
+- `CL_LBTYPE=octavia-ovn`: Load balancer type (depends on OpenStack environment)
 
 ## Scripts
 ### Once per management host

@@ -1,5 +1,5 @@
 clouds:
-  openstack:
+  ciab-test:
     region_name: "RegionOne"
     interface: "public"
     identity_api_version: 3

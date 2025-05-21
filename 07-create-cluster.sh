@@ -57,16 +57,16 @@ spec:
   topology:
     class: openstack-scs-${CS_MAINVER/./-}-$CS_VERSION
     controlPlane:
-      replicas: $CL_CTRLNODES
+      replicas: $CL_CONTROLNODES
     version: v$CL_PATCHVER
     workers:
       machineDeployments:
-        - class: default-worker
+        - class: $CL_WORKERCLASS
           name: md-0
-          replicas: $CL_WRKRNODES
+          replicas: $CL_WORKERNODES
     variables:
       - name: apiserver_loadbalancer
-        value: "octavia-ovn"
+        value: "$CL_LBTYPE"
 EOF
 
 echo "Applying cluster manifest..."
