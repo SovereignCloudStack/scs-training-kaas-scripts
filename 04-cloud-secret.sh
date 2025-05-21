@@ -29,6 +29,12 @@ OS_CACERT="${OS_CACERT:-$CA}"
 # Extract auth parts from secure.yaml if existent, assume same indentation
 SEC_YAML="${CLOUDS_YAML%clouds.yaml}secure.yaml"
 if test -r "$SEC_YAML"; then SECRETS=$(RMVTREE=1 RMVCOMMENT=1 extract_yaml clouds.$OS_CLOUD.auth < $SEC_YAML || true); fi
+# TODO:
+# We need a project_id in auth, determine it and add
+# - Alternative would be to create an application credential
+# TODO:
+# We need a region_name, add it in
+#
 # Construct a clouds.yaml (mode 0600):
 # - Only extracting one cloud addressed by $OS_CLOUD
 # - By merging secrets in from secure.yaml
