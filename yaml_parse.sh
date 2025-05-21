@@ -51,6 +51,7 @@ islinecomment()
 # Environment to pass special functions
 # $RMVTREE nonempty: Do not output yaml path leading to this section
 # $INSERT and $APPEND is text injected in the outputted block (at beginning and end resp.)
+# $INJECTSUB and $INJECTSUBKWD: inject text $INJECTSUB after the subsection $INJECTSUBKWD has been found
 # $REMOVE is a tag to filter out
 # $RMVCOMMTENT nonempty: Strip comments
 #
@@ -94,6 +95,10 @@ extract_yaml_rec()
 			#if test -z "$REMOVE" || ! echo "$line" | grep -q "^$previndent$more$REMOVE:"; then
 			if test -z "$REMOVE" || ! startswith "$previndent$more$REMOVE:" "$line"; then
 				echo "$line"
+			fi
+			if test -n "$INJECTSUB" -a -n "$INJECTSUBKWD" && startswith "$previndent$more$INJECTSUBKWD:" "$line"; then
+				echo "$INJECTSUB"
+				unset INJECTSUB
 			fi
 			continue
 		fi
