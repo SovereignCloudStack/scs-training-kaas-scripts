@@ -16,4 +16,4 @@ echo "The cluster should exist now"
 echo "WARN: Waiting not yet implemented"
 set -x
 clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME
-echo clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > "~/.kube/$CS_NAMESPACE.$CL_NAME.yaml"
+echo "clusterctl get kubeconfig -n $CS_NAMESPACE $CL_NAME > ~/.kube/config-$CS_NAMESPACE.$CL_NAME"
