@@ -21,7 +21,7 @@ cat > ~/tmp/clusterstack-$CS_MAINVER.yaml <<EOF
 apiVersion: clusterstack.x-k8s.io/v1alpha1
 kind: ClusterStack
 metadata:
-  name: openstack
+  name: openstack-${CS_MAINVER/./-}
   namespace: "$CS_NAMESPACE"
 spec:
   provider: openstack
