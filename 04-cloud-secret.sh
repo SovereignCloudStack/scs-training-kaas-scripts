@@ -37,7 +37,7 @@ if test -n "$SECRETS"; then
 fi
 # Determine whether we need to add project ID
 RAW_CLOUD=$(extract_yaml clouds.$OS_CLOUD <$CLOUDS_YAML)
-if ! echo "$RAW_CLOUD" | grep -q "^\s*project_id:"; then
+if ! echo "$RAW_CLOUD" | grep -q '^\s*project_id:' && echo "$RAW_CLOUD" | grep -q '^\s*project_name:'; then
 	# Need openstack CLI for this
 	PROJECT_NAME=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\s*project_name: //')
 	PROJECT_ID=$(openstack project show $PROJECT_NAME -c id -f value | tr -d '\r')
