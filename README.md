@@ -25,6 +25,8 @@ copy, fill it in, and pass it to the scripts.
 * 02-deploy-capi.sh: Install ORC and CAPI.
 * 03-deploy-cso.sh: Install the Cluster Stack Operator.
 
+* 18-delete-kind.sh: Remove kind cluster management again.
+
 ### Once per OpenStack Project in which we want to install clusters (NS)
 * 04-cloud-secret.sh: Create namespace and secrets to work with the
   wanted OpenStack project.
@@ -40,6 +42,7 @@ copy, fill it in, and pass it to the scripts.
   that are passed.
 * 08-wait-cluster.sh: Wait for the workload cluster (not yet implemented)
 
+* 16-cleanup-cluster.sh: Remove loadbalancers and persistent volumes from cluster.
 * 17-delete-cluster.sh: Remove cluster again.
 
 ### CSI Cinder fixup
