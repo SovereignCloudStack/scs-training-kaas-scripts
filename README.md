@@ -35,12 +35,12 @@ copy, fill it in, and pass it to the scripts.
 * 05-deploy-cstack.sh: Create the Cluster Stack which is a template
   for various clusters with the same major minor version of k8s.
   Should trigger cluster class creation and image registration.
-* 06-wait-clusterclass.sh: Wait for the cluster class (not yet implemented)
+* 06-wait-clusterclass.sh: Wait for the cluster class
 
 ### Once per cluster
 * 07-create-cluster.sh: Create a workload cluster as per all the settings
   that are passed.
-* 08-wait-cluster.sh: Wait for the workload cluster (not yet implemented)
+* 08-wait-cluster.sh: Wait for the workload cluster
 
 * 16-cleanup-cluster.sh: Remove loadbalancers and persistent volumes from cluster.
 * 17-delete-cluster.sh: Remove cluster again.
@@ -56,3 +56,12 @@ to a non-existing file, see [ClusterStacks issue #188](https://github.com/Sovere
 This results in a `CrashLoopBackup` state for
 the openstack-cinder-csi-* pods in the workload cluster. Until this
 is fixed up upstream, it can be patched using the `09-fixup-cinder.sh`.
+
+### Moving management to a new cluster
+The bootstrap KinD management cluster (host) is not set up in a way
+that is robust enough for long-term operation. So we should move the
+CAPI, CAPO, CSO management objects into a more resilient k8s cluster,
+as is supported with `clusterctl move`. Beyond the capi, capi resources,
+this requires tracking all other management resources (objects from
+ORC, CSO etc.) -- once this is complete, a script will be offered
+to facilitate this.
