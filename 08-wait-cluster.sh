@@ -21,13 +21,14 @@ source "$SET"
 
 # Display cluster state
 echo "Checking state of cluster $CL_NAME in namespace $CS_NAMESPACE..."
-echo
+kubectl get cluster -A
 
 # Show cluster description
-clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME
+clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME --grouping=false
 echo
 
 # Get cluster status if available
+#kubectl wait --timeout=14m --for=condition=certificatesavailable -n "$CS_NAMESPACE" kubeadmcontrolplanes -l cluster.x-k8s.io/cluster-name=$CL_NAME
 if kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME &>/dev/null; then
     CLUSTER_STATUS=$(kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME -o jsonpath='{.status.phase}')
     echo "Cluster status: $CLUSTER_STATUS"
@@ -39,10 +40,11 @@ if kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME &>/dev/null; then
         # Get kubeconfig
         echo "Creating ~/.kube directory if needed..."
         mkdir -p ~/.kube
+        KCFG=~/.kube/$CS_NAMESPACE.$CL_NAME
         
-        echo "Saving kubeconfig to ~/.kube/$CS_NAMESPACE.$CL_NAME"
-        clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > ~/.kube/$CS_NAMESPACE.$CL_NAME
-        chmod 600 ~/.kube/$CS_NAMESPACE.$CL_NAME
+        echo "Saving kubeconfig to $KCFG
+        clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > $KCFG
+        chmod 600 $KCFG
         
         echo "Kubeconfig has been saved"
         echo "You can access the cluster with: export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME"
@@ -50,7 +52,10 @@ if kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME &>/dev/null; then
         
         # Display cluster info
         echo "Displaying cluster info:"
-        KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME kubectl cluster-info
+        KUBECONFIG=$KCFG kubectl cluster-info
+        #KUBECONFIG=$KCFG kubectl get nodes -o wide
+        #KUBECONFIG=$KCFG kubectl get pods -A
+        echo "# Hint: Use KUBECONFIG=$KCFG kubectl ... to access you workload cluster $CS_NAMESPACE/$CL_NAME"
     else
         echo "Cluster is not yet ready (status: $CLUSTER_STATUS)"
         echo "Run this script again after some time to check status and save kubeconfig when ready"

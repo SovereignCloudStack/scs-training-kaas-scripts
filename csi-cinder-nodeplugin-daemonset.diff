@@ -1,0 +1,16 @@
+--- cinder-csi-nodeplugin.old.yaml	2025-05-21 15:17:10.849200731 +0000
++++ cinder-csi-nodeplugin.yaml	2025-05-21 15:17:37.264876651 +0000
+@@ -85,5 +85,5 @@ spec:
+           value: unix://csi/csi.sock
+         - name: CLOUD_CONFIG
+-          value: /etc/kubernetes/cloud.conf
++          value: /etc/config/cloud.conf
+         image: registry.k8s.io/provider-os/cinder-csi-plugin:v1.31.3
+         imagePullPolicy: IfNotPresent
+@@ -124,5 +124,5 @@ spec:
+           name: cacert
+           readOnly: true
+-        - mountPath: /etc/kubernetes
++        - mountPath: /etc/config
+           name: cloud-config
+           readOnly: true

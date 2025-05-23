@@ -31,8 +31,6 @@ echo "Using registry.scs.community/kaas/cluster-stacks as OCI repository"
 helm upgrade -i cso -n cso-system \
 	--create-namespace --values ~/tmp/cso-rbac.yaml \
 	oci://registry.scs.community/cluster-stacks/cso
-
+  
 echo "Waiting for CSO deployments to be ready..."
 kubectl -n cso-system rollout status deployment
-
-echo "Cluster Stack Operator deployed successfully."

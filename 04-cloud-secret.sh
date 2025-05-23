@@ -67,7 +67,7 @@ fi
 echo "# Generating ~/tmp/clouds-$OS_CLOUD.yaml ..."
 OLD_UMASK=$(umask)
 umask 0177
-APPEND="$SECRETS" RMVCOMMENT=1 REMOVE=cacert extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
+INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 REMOVE=cacert extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
 umask $OLD_UMASK
 # FIXME: We will provide more settings in cluster-settings.env later, hardcode it for now
 if test "$CS_CCMLB" = "octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
