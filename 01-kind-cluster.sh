@@ -17,3 +17,4 @@ if test "$(kind get clusters)" != "kind"; then
 else
 	echo "kind cluster already running"
 fi
+kubectl cluster-info
