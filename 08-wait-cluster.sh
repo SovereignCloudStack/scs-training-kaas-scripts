@@ -41,15 +41,17 @@ if kubectl get cluster -n "$CS_NAMESPACE" $CL_NAME &>/dev/null; then
         echo "Creating ~/.kube directory if needed..."
         mkdir -p ~/.kube
         KCFG=~/.kube/$CS_NAMESPACE.$CL_NAME
-        
+
         echo "Saving kubeconfig to $KCFG
+        OLDUMASK=$(umask)
+        umask 0077
         clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > $KCFG
-        chmod 600 $KCFG
-        
+        umask $OLDUMASK
+
         echo "Kubeconfig has been saved"
         echo "You can access the cluster with: export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME"
         echo
-        
+
         # Display cluster info
         echo "Displaying cluster info:"
         KUBECONFIG=$KCFG kubectl cluster-info
