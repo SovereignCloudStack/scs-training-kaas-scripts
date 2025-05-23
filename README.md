@@ -3,47 +3,122 @@ Some helpful snippets of code to automate the creation of Cluster-Stacks
 
 ## Goals
 Creating cluster stacks and cluster based on these takes a significant
-number of stacks that are hard to remember correctly for people that are
-not cluster-API and Cluster Class expert.
+number of steps that are hard to remember correctly for people that are
+not cluster-API and Cluster Class experts.
 
-We this hide them in a number of distinct steps that are in numbered scripts.
-The reason for not doing everything in one script is that you do register
-cloud secrets or install capi much less often than install cluster classses
-which happens much less often than creating clusters.
+We hide them in a number of distinct scripts. The reason for not doing
+everything in one script is that you register cloud secrets or install CAPI
+much less often than install cluster classes, which happens much less often
+than creating clusters.
+
+## Prerequisites and Setup
+
+### Obtaining the Cloud-in-a-Box Certificate
+
+If you're using SCS Cloud-in-a-Box (CiaB), you'll need to obtain the certificate. The certificates are located on the CiaB manager host at `/etc/ssl/certs/ca-certificates.crt`.
+
+To obtain it:
+
+1. SSH into your CiaB manager host (usually as user `dragon`)
+2. Copy the certificate file:
+   ```bash
+   scp dragon@<CiaB-IP>:/etc/ssl/certs/ca-certificates.crt ./ca-certificates.crt
+   ```
+3. Extract the last certificate from the file (the CiaB-specific certificate):
+   ```bash
+   # Extract the last certificate from the bundle
+   tac ca-certificates.crt | awk '/-----BEGIN CERTIFICATE-----/{flag=1} flag{print} /-----END CERTIFICATE-----/{exit}' | tac > ciab.cert
+   ```
+4. Place this `ciab.cert` file in the same directory as your scripts
+
+### Preparing Configuration Files
+
+Before running the main scripts, you may want to use the utility script to prepare your configuration:
+
+1. Place your `ciab.cert` file (or any other OpenStack certificate with `.cert` extension) in the script directory
+2. Create your `clouds.yaml` file from the template
+3. Run the preparation script:
+   ```bash
+   ./99-prepare-files.sh
+   ```
+
+This script will:
+- Create the `~/.config/openstack` directory if it doesn't exist
+- Copy any `.cert` files to the config directory
+- Update `clouds.yaml` to reference the certificate with its absolute path
+- Copy the updated `clouds.yaml` to the config directory
 
 ## Settings
 There is a [cluster-settings-template.env](cluster-settings-template.env) file
 that contains the parameters typically adjusted by users. Please create a
-copy, fill it in, and pass it to the scripts.
+copy, fill it in, and pass it to the scripts. You can also use the 
+[cluster-settings.env.sample](cluster-settings.env.sample) file as a reference, 
+which includes example values for all parameters.
+
+### Configuration Parameters
+
+#### Registry and Repository Settings
+- `CS_REGISTRY=registry.scs.community/kaas/cluster-stacks`: Registry for cluster stacks
+- `CSO_HELM_REPO=oci://registry.scs.community/cluster-stacks/cso`: Helm chart repository for CSO
+
+#### Namespace and Project Settings
+- `CS_NAMESPACE=clusterns`: Namespace for cluster resources
+- `CLOUDS_YAML=~/.config/openstack/clouds.yaml`: Path to OpenStack credentials file
+- `OS_CLOUD=${OS_CLOUD:-openstack}`: Name of the cloud in the clouds.yaml file
+- `CS_CCMLB=octavia-ovn`: Cloud controller manager load balancer type (octavia-ovn or octavia-amphora)
+
+#### Cluster Stack Settings
+- `CS_MAINVER=`: Kubernetes major.minor version (e.g., 1.32)
+- `CS_VERSION=`: Cluster stack template version (e.g., v1 or v0-sha.XXXXXXX)
+- `CS_CHANNEL=custom`: Update channel for ClusterStack
+- `CS_AUTO_SUBSCRIBE=false`: Whether to automatically subscribe to updates
+
+#### Workload Cluster Settings
+- `CL_PATCHVER=`: Full Kubernetes version (e.g., 1.32.3)
+- `CL_NAME=`: Cluster name
+- `CL_PODCIDR=172.16.0.0/18`: Pod CIDR range
+- `CL_SVCCIDR=10.96.0.0/14`: Service CIDR range
+- `CL_CTRLNODES=1`: Number of control plane nodes
+- `CL_WRKRNODES=1`: Number of worker nodes
+- `CL_WORKER_CLASS=default-worker`: Worker class used for machine deployments
+- `CL_LBTYPE=octavia-ovn`: Load balancer type (depends on OpenStack environment)
 
 ## Scripts
 ### Once per management host
-* 00-bootstrap-vm-cs.sh: Install the needed software to be able to do
-  cluster management on this host. (Developed for Debian 12.)
+* `00-bootstrap-vm-cs.sh`: Install the needed software to be able to do
+  cluster management on this host. (Developed for Debian and Ubuntu.)
   This is only needed if you do not have the needed tools preinstalled.
-* 01-kind-cluster.sh: Create kind cluster
-* 02-deploy-capi.sh: Install ORC and CAPI.
-* 03-deploy-cso.sh: Install the Cluster Stack Operator.
+* `01-kind-cluster.sh`: Create kind cluster
+* `02-deploy-capi.sh`: Install ORC and CAPI.
+* `03-deploy-cso.sh`: Install the Cluster Stack Operator.
 
 * 18-delete-kind.sh: Remove kind cluster management again.
 
 ### Once per OpenStack Project in which we want to install clusters (NS)
-* 04-cloud-secret.sh: Create namespace and secrets to work with the
-  wanted OpenStack project.
+* `04-cloud-secret.sh`: Create namespace and secrets to work with the
+  wanted OpenStack project. Uses the `CS_CCMLB` setting to configure
+  the cloud controller manager load balancer type.
 
 ### Once per Kubernetes aka CS version (maj.min)
-* 05-deploy-cstack.sh: Create the Cluster Stack which is a template
+* `05-deploy-cstack.sh`: Create the Cluster Stack which is a template
   for various clusters with the same major minor version of k8s.
   Should trigger cluster class creation and image registration.
-* 06-wait-clusterclass.sh: Wait for the cluster class
+* `06-wait-clusterclass.sh`: Wait for the cluster class to be ready
 
 ### Once per cluster
-* 07-create-cluster.sh: Create a workload cluster as per all the settings
+* `07-create-cluster.sh`: Create a workload cluster as per all the settings
   that are passed.
-* 08-wait-cluster.sh: Wait for the workload cluster
+* `08-wait-cluster.sh`: Check cluster status and save kubeconfig if ready.
+  This script no longer waits in a loop but provides immediate status
+  feedback. If the cluster is ready, it saves the kubeconfig to
+  `~/.kube/<namespace>.<cluster-name>` (without the .yaml extension).
 
-* 16-cleanup-cluster.sh: Remove loadbalancers and persistent volumes from cluster.
-* 17-delete-cluster.sh: Remove cluster again.
+* `16-cleanup-cluster.sh`: Remove loadbalancers and persistent volumes from cluster. (Not yet implemented.)
+* `17-delete-cluster.sh`: Remove cluster when no longer needed.
+
+### Utility scripts
+* `99-prepare-files.sh`: Prepare configuration files by copying certificates
+  and updating paths in clouds.yaml
 
 ### CSI Cinder fixup
 The `cloud.conf` generated by the helm openstack-csp-helper in step 04

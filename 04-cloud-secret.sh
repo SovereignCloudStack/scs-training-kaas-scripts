@@ -1,5 +1,5 @@
 #!/bin/bash
-# Create cloud secret
+# Create cloud secret for OpenStack credentials
 set -e
 # We need settings
 if test -n "$1"; then
@@ -11,15 +11,20 @@ else
 fi
 # Read settings -- make sure you can trust it
 source "$SET"
+echo "# Using settings from $SET"
+
 # Read helper
 THISDIR=$(dirname 0)
 source "$THISDIR/yaml_parse.sh"
 
 # Create namespace
 test -n "$CS_NAMESPACE"
+echo "Creating namespace $CS_NAMESPACE..."
 kubectl create namespace "$CS_NAMESPACE" || true
+
 # Default clouds.yaml location
 CLOUDS_YAML=${CLOUDS_YAML:-~/.config/openstack/clouds.yaml}
+
 # Use csp helper chart to create cloud secret
 # Notes on expected clouds.yaml:
 # - It should have the secrets (which you often keep in secure.yaml instead) merged into it
@@ -65,8 +70,7 @@ umask 0177
 INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 REMOVE=cacert extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
 umask $OLD_UMASK
 # FIXME: We will provide more settings in cluster-settings.env later, hardcode it for now
-#if test "$CS_CCMLB=octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
-OCTOVN="--set octavia_ovn=true"
+if test "$CS_CCMLB" = "octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
 if test -n "$OS_CACERT"; then
 	echo "# Found CA cert file configured to be \"$OS_CACERT\""
 	OS_CACERT="$(ls ${OS_CACERT/\~/$HOME})"
@@ -83,3 +87,5 @@ if test -n "$OS_CACERT"; then
 else
 	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f ~/tmp/clouds-$OS_CLOUD.yaml $OCTOVN
 fi
+
+echo "Cloud secret created successfully."

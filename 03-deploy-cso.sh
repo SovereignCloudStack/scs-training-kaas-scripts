@@ -1,8 +1,11 @@
 #!/bin/bash
-# Deploy CSO
+# Deploy Cluster Stack Operator (CSO)
 set -e
+
+echo "Creating temporary directory..."
 mkdir ~/tmp || true
 
+echo "Generating CSO RBAC configuration..."
 cat > ~/tmp/cso-rbac.yaml <<EOF
 clusterStackVariables:
   ociRepository: registry.scs.community/kaas/cluster-stacks
@@ -22,8 +25,12 @@ controllerManager:
           - update
           - watch
 EOF
-# Install Cluster Stack Operator (CSO) with above values
+
+echo "Installing Cluster Stack Operator with Helm..."
+echo "Using registry.scs.community/kaas/cluster-stacks as OCI repository"
 helm upgrade -i cso -n cso-system \
 	--create-namespace --values ~/tmp/cso-rbac.yaml \
 	oci://registry.scs.community/cluster-stacks/cso
+  
+echo "Waiting for CSO deployments to be ready..."
 kubectl -n cso-system rollout status deployment

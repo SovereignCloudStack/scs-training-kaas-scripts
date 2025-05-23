@@ -1,0 +1,15 @@
+clouds:
+  ciab-test:
+    region_name: "RegionOne"
+    interface: "public"
+    identity_api_version: 3
+    #verify: false  # Skip TLS verification, insecure, use only if you can't get the ca-bundle (next line) for self-signed certs
+    cacert: "/path/to/ca-bundle.crt"  
+    auth:
+      auth_url: "https://api.in-a-box.cloud:5000/v3"
+      project_name: "test"
+      project_domain_name: "test"
+      user_domain_name: "test"
+      # These are often split off into a secure.yaml
+      username: "test"
+      password: "test"
