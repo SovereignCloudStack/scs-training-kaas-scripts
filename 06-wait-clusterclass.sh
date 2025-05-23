@@ -12,10 +12,7 @@ else
 fi
 # Read settings -- make sure you can trust it
 source "$SET"
-# ToDo: Wait for cluster class
-echo "The clusterclass should exist now"
-echo "WARN: Waiting not yet implemented"
-sleep 3
-set -x
-kubectl get images -n "$CS_NAMESPACE"
+kubectl wait -n "$CS_NAMESPACE" clusterclass openstack-scs-${CS_MAINVER/./-}-${CS_VERSION} --for create
 kubectl get clusterclasses -n "$CS_NAMESPACE"
+kubectl get images -n "$CS_NAMESPACE"
+kubectl wait -n "$CS_NAMESPACE" clusterstackrelease openstack-scs-${CS_MAINVER/./-}-${CS_VERSION/./-} --for condition=ready
