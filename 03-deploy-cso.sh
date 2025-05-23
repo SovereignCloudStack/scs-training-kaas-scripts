@@ -26,3 +26,4 @@ EOF
 helm upgrade -i cso -n cso-system \
 	--create-namespace --values ~/tmp/cso-rbac.yaml \
 	oci://registry.scs.community/cluster-stacks/cso
+kubectl -n cso-system rollout status deployment
