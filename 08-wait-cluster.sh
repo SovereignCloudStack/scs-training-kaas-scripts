@@ -17,7 +17,10 @@ kubectl wait --timeout=14m --for=condition=certificatesavailable -n "$CS_NAMESPA
 kubectl get -n "$CS_NAMESPACE" cluster $CL_NAME
 clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME --grouping=false
 KCFG=~/.kube/$CS_NAMESPACE.$CL_NAME
+OLDUMASK=$(umask)
+umask 0077
 clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > $KCFG
+umask $OLDUMASK
 KUBECONFIG=$KCFG kubectl get nodes -o wide
 KUBECONFIG=$KCFG kubectl get pods -A
 echo "# Hint: Use KUBECONFIG=$KCFG kubectl ... to access you workload cluster $CS_NAMESPACE/$CL_NAME"
