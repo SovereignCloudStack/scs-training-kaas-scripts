@@ -12,6 +12,7 @@
 set -e
 THISDIR=$(dirname 0)
 # We need settings
+#unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
 else
@@ -22,8 +23,8 @@ fi
 # Read settings -- make sure you can trust it
 source "$SET"
 # Do this on the workload cluster, ensure we have a config
-clusterctl get kubeconfig -n $CS_NAMESPACE $CL_NAME > ~/.kube/config-$CS_NAMESPACE.$CL_NAME
-export KUBECONFIG=~/.kube/config-$CS_NAMESPACE.$CL_NAME
+#clusterctl get kubeconfig -n $CS_NAMESPACE $CL_NAME > ~/.kube/$CS_NAMESPACE.$CL_NAME
+export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME
 # Get cinder-csi-controllerplugin deployment and patch it
 kubectl get -n kube-system deployment openstack-cinder-csi-controllerplugin -o yaml > ~/tmp/cinder-csi-controllerplugin.yaml
 patch ~/tmp/cinder-csi-controllerplugin.yaml <$THISDIR/csi-cinder-controller-deployment.diff 
