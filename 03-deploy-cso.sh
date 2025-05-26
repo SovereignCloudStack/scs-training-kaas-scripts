@@ -1,8 +1,17 @@
 #!/bin/bash
 # Deploy CSO
 set -e
-mkdir ~/tmp || true
-
+mkdir -p ~/tmp
+# We need settings (not really yet)
+unset KUBECONFIG
+if test -n "$1"; then
+	SET="$1"
+else
+	if test -e cluster-settings.env; then SET=cluster-settings.env;
+	else echo "You need to pass a cluster-settings.env file as parameter"; exit 1
+	fi
+fi
+# Deploy CSO
 cat > ~/tmp/cso-rbac.yaml <<EOF
 clusterStackVariables:
   ociRepository: registry.scs.community/kaas/cluster-stacks

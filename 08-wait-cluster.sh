@@ -2,6 +2,7 @@
 # Wait for cluster
 set -e
 # We need settings
+unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
 else
@@ -11,10 +12,12 @@ else
 fi
 # Read settings -- make sure you can trust it
 source "$SET"
-kubectl get cluster -A
+#kubectl get cluster -A
 #set -x
-kubectl wait --timeout=14m --for=condition=certificatesavailable -n "$CS_NAMESPACE" kubeadmcontrolplanes -l cluster.x-k8s.io/cluster-name=$CL_NAME
+echo "# Wait for certificates for cluster -n $CS_NAMESPACE $CL_NAME"
+kubectl wait --timeout=12m --for=condition=certificatesavailable -n "$CS_NAMESPACE" kubeadmcontrolplanes -l cluster.x-k8s.io/cluster-name=$CL_NAME
 kubectl get -n "$CS_NAMESPACE" cluster $CL_NAME
+kubectl wait --timeout=8m --for=condition=Ready -n "$CS_NAMESPACE" machine -l cluster.x-k8s.io/control-plane,cluster.x-k8s.io/cluster-name=${CL_NAME}
 clusterctl describe cluster -n "$CS_NAMESPACE" $CL_NAME --grouping=false
 KCFG=~/.kube/$CS_NAMESPACE.$CL_NAME
 OLDUMASK=$(umask)

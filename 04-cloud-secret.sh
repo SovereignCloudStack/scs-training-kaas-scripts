@@ -2,6 +2,7 @@
 # Create cloud secret
 set -e
 # We need settings
+unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
 else
