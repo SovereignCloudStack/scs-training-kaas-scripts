@@ -2,6 +2,7 @@
 set -e
 # Cleaning up inside cluster
 # We need to remove the LB and Storage resources
+unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
 else
