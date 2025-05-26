@@ -2,6 +2,7 @@
 # Deploy the ClusterStack
 set -e
 # We need settings
+unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
 else
@@ -30,8 +31,7 @@ spec:
   channel: custom
   autoSubscribe: false
   noProvider: true
-  versions:
-    - $CS_VERSION
+  versions: $CS_VERSION
 EOF
 # Apply
 kubectl apply -f ~/tmp/clusterstack-$CS_MAINVER.yaml

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 # We need settings
+# unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
 else
@@ -20,6 +21,19 @@ if test -z "$CL_SVCCIDR"; then echo "Configure CL_SVCCIDR"; exit 7; fi
 if test -z "$CL_CTRLNODES"; then echo "Configure CL_CTRLNODES"; exit 8; fi
 if test -z "$CL_WRKRNODES"; then echo "Configure CL_WRKRNODES"; exit 9; fi
 # Create Cluster yaml
+# If we have an array, match what CS_VERSION we want to wait for
+if test "${CS_VERSION:0:1}" = "["; then
+	VERSIONS=$(kubectl get clusterstackreleases -n $CS_NAMESPACE -o "custom-columns=NAME:.metadata.name,K8SVER:.status.kubernetesVersion")
+	while read csnm k8sver; do
+		if test "$csnm" = "NAME"; then continue; fi
+		if test "$k8sver" = "v$CL_PATCHVER"; then
+			CS_VERSION="v${csnm#openstack-scs-?-??-v}"
+			CS_VERSION="${CS_VERSION%-*}.${CS_VERSION##*-}"
+			break
+		fi
+	done < <(echo "$VERSIONS")
+	if test "${CS_VERSION:0:1}" = "["; then echo "No clusterstackrelease with v$CL_PATCHVER found"; exit 10; fi
+fi
 # TODO: There are a number of variables that allow us to set things like
 #  flavors, disk sizes, loadbalancer types, etc.
 #  We need to make them visible!
