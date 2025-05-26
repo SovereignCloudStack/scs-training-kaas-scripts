@@ -66,11 +66,34 @@ umask 0177
 INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
 sed -i 's@^\(\s*cacert:\).*@\1 /etc/openstack/cacert.pem@' ~/tmp/clouds-$OS_CLOUD.yaml
 CL_YAML=$(ls ~/tmp/clouds-$OS_CLOUD.yaml)
-kubectl create secret -n kube-system generic clouds-yaml --from-file=$CL_YAML --dry-run=client -oyaml > ~/tmp/clouds-$OS_CLOUD-yaml-secret
+CL_YAML_B64=$(base64 -w0 < "$CL_YAML")
+#kubectl create secret -n $CS_NAMESPACE generic clouds-yaml --from-file=$CL_YAML 
 umask $OLD_UMASK
 if test -n "$OS_CACERT"; then
 	OS_CACERT=${OS_CACERT/\~/$HOME}
-	kubectl create secret -n kube-system generic cacert-pem --from-file=$OS_CACERT --dry-run=client -oyaml > ~/tmp/cacert-secret
+	CACERT_B64=$(base64 -w0 < $OS_CACERT)
+	cat | kubectl apply -f - << EOT
+apiVersion: v1
+data:
+  clouds.yaml: $CL_YAML_B64
+  cacert.pem: $CACERT_B64
+kind: Secret
+metadata:
+  name: openstack
+  namespace: $CS_NAMESPACCE
+type: Opaque
+EOT
+else
+	cat | kubectl apply -f << EOT
+apiVersion: v1
+data:
+  clouds.yaml: $CL_YAML_B64
+kind: Secret
+metadata:
+  name: openstack
+  namespace: $CS_NAMESPACCE
+type: Opaque
+EOT
 fi
 # FIXME: We will provide more settings in cluster-settings.env later, hardcode it for now
 #if test "$CS_CCMLB=octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
