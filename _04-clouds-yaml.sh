@@ -76,7 +76,7 @@ if test -n "$OS_CACERT"; then
 	OS_CACERT=${OS_CACERT/\~/$HOME}
 	CACERT_B64=$(base64 -w0 < $OS_CACERT)
 	# For OCCM and CSI, the location of cacert is /etc/config
-	CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstacǩ/cacert@' "$CL_YAML"))
+	CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstack/cacert@' "$CL_YAML"))
 	CLCONF_B64=$(base64 -w0 <<EOT
 apiVersion: v1
 kind: Secret
