@@ -162,7 +162,7 @@ spec:
   strategy: "Reconcile"
   clusterSelector:
     matchLabels:
-      managed-secret: clouds-yaml
+      managed-secret: cloud-config
   resources:
     - name: openstack-workload-cluster-secret
       kind: Secret
