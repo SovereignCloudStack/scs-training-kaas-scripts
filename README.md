@@ -55,15 +55,15 @@ is fixed up upstream, it can be patched using the `09-fixup-cinder.sh`.
 The fix has been accepted upstream and will be in the cinder-csi-2.33 driver.
 
 ### Testing and utilities
-* 10-install-gateway-api-crd.sh: Install gateway API CRDs.
+* 20-install-gateway-api-crd.sh: Install gateway API CRDs.
   You will need to reinstall Cilium with the right settings to get
   Gateway API functionality from it though.
-* 11-deploy-kube-dashboard.sh: Deploys the kubernetes dashboard into
+* 21-deploy-kube-dashboard.sh: Deploys the kubernetes dashboard into
   your workload cluster. It is exposed via a Loadbalancer.
   You need to use the generated token to authenticate.
 
 ### Cleanup
-* 55-remove-kube-dashboard.sh: Removes the kubernetes dashboard if deployed
+* 50-remove-kube-dashboard.sh: Removes the kubernetes dashboard if deployed
   previously (11)
 * 56-cleanup-cluster.sh: Remove loadbalancers and persistent volumes from cluster.
 * 57-delete-cluster.sh: Remove cluster again.
