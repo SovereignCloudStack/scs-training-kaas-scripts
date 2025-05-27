@@ -143,7 +143,7 @@ data:
   clouds-yaml-secret: $CLCONF_B64
 kind: Secret
 metadata:
-  name: openstack-workload-cluster-secret
+  name: openstack-workload-cluster-newsecret
   namespace: $CS_NAMESPACE
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
@@ -154,7 +154,7 @@ kubectl apply -f - <<EOT
 apiVersion: addons.cluster.x-k8s.io/v1beta1
 kind: ClusterResourceSet
 metadata:
-  name: crs-openstack-secret
+  name: crs-openstack-newsecret
   namespace: $CS_NAMESPACE
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
@@ -162,8 +162,8 @@ spec:
   strategy: "Reconcile"
   clusterSelector:
     matchLabels:
-      managed-secret: cloud-config
+      managed-secret: clouds-yaml
   resources:
-    - name: openstack-workload-cluster-secret
+    - name: openstack-workload-cluster-newsecret
       kind: Secret
 EOT
