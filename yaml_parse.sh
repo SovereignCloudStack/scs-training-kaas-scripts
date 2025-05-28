@@ -29,7 +29,8 @@ islineempty()
 {
 	local LN
 	IFS="	 " read LN < <(echo "$1")
-	if test -z "$LN"; then return 0; else return 1; fi
+	if test -z "$LN"; then return 0; fi
+	if test "${LN:0:3}" = "---"; then return 0; else return 1; fi
 }
 
 # comment helper
@@ -41,35 +42,82 @@ islinecomment()
 	if test "${LN:0:1}" = "#"; then return 0; else return 1; fi
 }
 
-handle_array()
-{
-	# FIXME: Not yet implemented
-	echo "Warning: handle_array is not yet implemented"
-}
-
 
 _VARNM=""
 _prevstart=""
 _MORE=""
+_in_multiline=""
+_in_array=""
 
 fill_value()
 {
-	# global _VARNM
-	local EXP NM
+	# global _VARNM _in_array _in_multiline
+	local EXP NM VAL
 	EXP=${1#$_prevstart}
 	NM=${EXP%%:*}
 	NM=${NM//-/_}
+	# First element without leading __
 	if test -n "$_VARNM"; then
 		_VARNM="${_VARNM}__$NM"
 	else
 		_VARNM="$NM"
 	fi
+	# Do we have a direct value
 	if test "${EXP%%:*}" != "${EXP%:}"; then
-		# TODO: Handle array
+		VAL="${EXP#*:}"
+		VAL="${VAL# }"
 		# FIXME: Don't do this on untrusted input
-		eval $_VARNM="${EXP#*: }"
-		#echo "$_VARNM=\"${EXP#*: }\"" 1>&2
+		# Dicts
+		if test "${VAL:0:1}" = "{"; then
+			 while IFS=": " read k p; do
+				 eval ${_VARNM}__$k="$p"
+				 echo "#DEBUG1: ${_VARNM}__$k=\"$p\"" 1>&2
+			 done < <(echo "$VAL" | sed -e 's/{//' -e 's/}//' -e 's/,/\n/g')
+		# Arrays
+		elif test "${VAL:0:1}" = "["; then
+			eval $_VARNM="("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")"
+			echo "#DEBUG2: ${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))" 1>&2
+		# Multiline
+		elif test "${VAL:0:1}" = "|"; then
+			_in_multiline="#MARKER"
+			echo "#DEBUG: Found multiline marker $VAL" 1>&2
+			#_prevstart="$_prevstart$_MORE"
+		# None of the above
+		else
+			# Append multiline string
+			if test -n "$_in_multiline"; then
+				echo "#ERROR1" 1>&2
+				if test "$_in_multiline" = "#MARKER"; then
+					_in_multiline="$VAL"
+				else
+					_in_multiline="$_in_multiline
+$VAL"
+				fi
+			elif test -n "$_in_array"; then
+				_in_array="$_in_array \"$VAL\""
+				echo "#ERROR2" 1>&2
+			else
+				eval $_VARNM="$VAL"
+				echo "#DEBUG3: $_VARNM=\"$VAL\"" 1>&2
+			fi
+		fi
 	fi
+}
+
+# Fill in multiline and arrays into old variable
+finalize_var()
+{
+	if test -z "$YAMLASSIGN"; then return; fi
+	if test -n "$_in_multiline"; then
+		echo "#DEBUG4: $_VARNM=\"$_in_multiline\"" 1>&2
+		eval $_VARNM="\"$_in_multiline\""
+		_in_multiline=""
+	elif test -n "$_in_array"; then
+		echo "#DEBUG5: $_VARNM=($_in_array)" 1>&2
+		eval $_VARNM="("$_in_array")"
+		_in_array=""
+	fi
+	_VARNM="${_VARNM%__*}"
 }
 
 # Helper: assign values
@@ -86,26 +134,44 @@ parse_line()
 	# Work on (c):
 	while ! startswith "$_prevstart" "$1"; do
 		#echo "# Strip \"$_MORE\" in $LNNO \"$1\"" 1>&2
-		_VARNM="${_VARNM%__*}"
+		finalize_var
 		# FIXME: This assumes the indentations are regular
 		_prevstart="${_prevstart%$_MORE}"
 	done
 	# Case (a)
 	if startswith "$_prevstart$_MORE" "$1"; then
-		_prevstart="$_prevstart$_MORE"
-		if startswith "$_prevstart-" "$1"; then
-			handle_array "$1"
-		elif startswith "$_prevstart$_MORE-" "$1"; then
-			_prevstart="$_prevstart$_MORE"
-			handle_array "$1"
+		if test -n "$_in_multiline"; then
+			VAL="${1#$_prevstart$_MORE}"
+			if test "$_in_multiline" = "#MARKER"; then
+				_in_multiline="$VAL"
+			else
+				_in_multiline="$_in_multiline
+$VAL"
+			fi
 		else
-			fill_value "$1"
+			if startswith "$_prevstart$_MORE-" "$1"; then
+				#TODO: Parse dicts in array
+				_in_array="$_in_array \"${1#$_prevstart$_MORE- }\""
+				echo "#DEBUG: Found array elem ${1#$_prevstart$_MORE- }" 1>&2
+			elif startswith "$_prevstart$_MORE$_MORE-" "$1"; then
+				_prevstart="$_prevstart$_MORE"
+				#TODO: Parse dicts in array
+				_in_array="$_in_array \"${1#$_prevstart$_MORE- }\""
+				echo "#DEBUG: Found indented array elem ${1#$_prevstart$_MORE- }" 1>&2
+			else
+				_prevstart="$_prevstart$_MORE"
+				fill_value "$1"
+			fi
 		fi
 	# Case (b)
 	else
 		# TODO: Handle array continuation
-		_VARNM="${_VARNM%__*}"
-		fill_value "$1"
+		if startswith "$_prevstart-" "$1"; then
+			_in_array="$_in_array \"${1#$_prevstart- }\""
+		else
+			finalize_var
+			fill_value "$1"
+		fi
 	fi
 }
 
@@ -123,7 +189,7 @@ parse_line()
 # $INJECTSUB and $INJECTSUBKWD: inject text $INJECTSUB after the subsection $INJECTSUBKWD has been found
 # $REMOVE is a tag to filter out
 # $RMVCOMMENT nonempty: Strip comments
-# $ASSIGNYAML fills shell variables with the parsed yaml
+# $YAMLASSIGN fills shell variables with the parsed yaml
 # 	where a variable a-b.c.d_e.f will look like a_b__c__d_e__f
 #
 # Return value: 0 if we found (and output) a block, 1 otherwise
@@ -167,11 +233,11 @@ extract_yaml_rec()
 			#if test -z "$REMOVE" || ! echo "$line" | grep -q "^$previndent$more$REMOVE:"; then
 			if test -z "$REMOVE" || ! startswith "$previndent$more$REMOVE:" "$line"; then
 				echo "$line"
-				parse_line "$previndent$more" "$line"
+				parse_line "$line"
 			fi
 			if test -n "$INJECTSUB" -a -n "$INJECTSUBKWD" && startswith "$previndent$more$INJECTSUBKWD:" "$line"; then
 				echo "$INJECTSUB"
-				parse_line "$previndent$more" "$INJECTSUB"
+				parse_line "$INJECTSUB"
 				unset INJECTSUB
 			fi
 			continue
@@ -187,12 +253,12 @@ extract_yaml_rec()
 			# Output tree unless we suppress it
 			if test -z "$RMVTREE"; then
 				echo "$line"
-				parse_line "$previndent$more" "$line"
+				parse_line "$line"
 			else
 				# At the leaf, we may hold a value
 				if test -z "$2"; then
 					echo "$line" | grep --color=never "^$previndent$more$1: [^\\s]"
-					parse_line "$previndent$more" "$line"
+					parse_line "$line"
 				fi
 			fi
 			shift
@@ -218,11 +284,15 @@ extract_yaml_rec()
 extract_yaml()
 {
 	local _RET
+	_prevstart=""
+	_in_multiline=""
+	_in_array=""
+	_VARNM=""
 	LNNO=0
 	SRCH=($(echo "$1" | sed 's/\./ /g'))
 	extract_yaml_rec "" "" "${SRCH[@]}"
 	_RET=$?
-	_prevstart=""
+	finalize_var
 	return $_RET
 }
 
