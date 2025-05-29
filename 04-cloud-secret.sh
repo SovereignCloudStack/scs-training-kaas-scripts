@@ -14,7 +14,7 @@ fi
 source "$SET"
 # Read helper
 THISDIR=$(dirname 0)
-source "$THISDIR/yaml_parse.sh"
+source "$THISDIR/_yaml_parse.sh"
 
 # Create namespace
 test -n "$CS_NAMESPACE"

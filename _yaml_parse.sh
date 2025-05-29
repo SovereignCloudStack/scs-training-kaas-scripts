@@ -42,6 +42,17 @@ islinecomment()
 	if test "${LN:0:1}" = "#"; then return 0; else return 1; fi
 }
 
+###
+# Assign extracted YAML to shell variables
+# tag1.tag2.tag3-a: val123 becomes tag1__tag2__tag3_a=val123
+# Arrays of plain values can be handled with shell arrays
+# However: Arrays of dicts are common and we have to decide how to handle
+# I.e. how to represent tag1=[{tag2:val2,tag3:val3},{tag2:val4,tag3:val5}]
+# tag1[0]="__tag2=val2,__tag3=val3"; tag1[1]="__tag2=val4",__tar3=val5"
+# We should be able to iterate over tag1[*]
+# for tag in ${tag1[*]}; do eval $tag; done
+# In loop: now __tag2 and __tag3 should be defined
+# This does not mix in how we currently handle data arrays
 
 _VARNM=""
 _prevstart=""
@@ -117,7 +128,11 @@ finalize_var()
 		eval $_VARNM="("$_in_array")"
 		_in_array=""
 	fi
-	_VARNM="${_VARNM%__*}"
+	if test "${_VARNM%__*}" = "$_VARNM"; then
+		_VARNM=""
+	else
+		_VARNM="${_VARNM%__*}"
+	fi
 }
 
 # Helper: assign values
@@ -137,6 +152,7 @@ parse_line()
 		finalize_var
 		# FIXME: This assumes the indentations are regular
 		_prevstart="${_prevstart%$_MORE}"
+		#_VARNM="${_VARNM%__*}"
 	done
 	# Case (a)
 	if startswith "$_prevstart$_MORE" "$1"; then
