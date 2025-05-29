@@ -152,12 +152,12 @@ else
 fi
 if test -n "$clouds__openstack__auth__application_credential_id"; then
 	AUTHSECTION="application-credential-id=$clouds__openstack__application_credential_id
-application-credential-secret=\"$clouds__openstack__aplication_credential_secret\""
+application-credential-secret=$clouds__openstack__aplication_credential_secret"
 else
-	AUTHSECTION="username=\"$clouds__openstack__auth__username\"
-password=\"$clouds__openstack__auth__password\"
-user-domain-name=\"$clouds__openstack__auth__user_domain_name\"
-domain-name=\"${clouds__openstack__auth__domain_name:-$clouds__openstack__auth__project_domain_name}\"
+	AUTHSECTION="username=$clouds__openstack__auth__username
+password=$clouds__openstack__auth__password
+user-domain-name=$clouds__openstack__auth__user_domain_name
+domain-name=${clouds__openstack__auth__domain_name:-$clouds__openstack__auth__project_domain_name}
 tenant-id=$clouds__openstack__auth__project_id
 project-id=$clouds__openstack__auth__project_id"
 fi
