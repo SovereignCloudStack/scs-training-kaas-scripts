@@ -48,11 +48,9 @@ islinecomment()
 # Arrays of plain values can be handled with shell arrays
 # However: Arrays of dicts are common and we have to decide how to handle
 # I.e. how to represent tag1=[{tag2:val2,tag3:val3},{tag2:val4,tag3:val5}]
-# tag1[0]="__tag2=val2,__tag3=val3"; tag1[1]="__tag2=val4",__tar3=val5"
-# We should be able to iterate over tag1[*]
-# for tag in ${tag1[*]}; do eval $tag; done
-# In loop: now __tag2 and __tag3 should be defined
-# This does not mix in how we currently handle data arrays
+# Approach: Store earch array element as parseable YAML
+# tag1[0]="{tag2:val,tag3:val}", tag1[1]="{tag2:val4,tag3:val5}"
+# For multiline arrays, basically do a multiline string handling
 
 _VARNM=""
 _prevstart=""
@@ -150,10 +148,13 @@ parse_line()
 	while ! startswith "$_prevstart" "$1"; do
 		#echo "# Strip \"$_MORE\" in $LNNO \"$1\"" 1>&2
 		finalize_var
+		#_VARNM="${_VARNM%__*}"
 		# FIXME: This assumes the indentations are regular
 		_prevstart="${_prevstart%$_MORE}"
-		#_VARNM="${_VARNM%__*}"
 	done
+	# TODO: If we are in array parsing mode, we basically just need
+	# to determine whether we have a the end, a new element, or continuation
+	# of the content of an array element.
 	# Case (a)
 	if startswith "$_prevstart$_MORE" "$1"; then
 		if test -n "$_in_multiline"; then
@@ -165,15 +166,15 @@ parse_line()
 $VAL"
 			fi
 		else
-			if startswith "$_prevstart$_MORE-" "$1"; then
+			# only accept addtl indentation for first element
+			if startswith "$_prevstart$_MORE-" "$1" && test -z "$_in_array"; then
 				#TODO: Parse dicts in array
 				_in_array="$_in_array \"${1#$_prevstart$_MORE- }\""
-				echo "#DEBUG: Found array elem ${1#$_prevstart$_MORE- }" 1>&2
-			elif startswith "$_prevstart$_MORE$_MORE-" "$1"; then
-				_prevstart="$_prevstart$_MORE"
-				#TODO: Parse dicts in array
-				_in_array="$_in_array \"${1#$_prevstart$_MORE- }\""
-				echo "#DEBUG: Found indented array elem ${1#$_prevstart$_MORE- }" 1>&2
+				echo "#DEBUG: Found array start ${1#$_prevstart$_MORE- }" 1>&2
+			# A new dict field in the array
+			elif test -n "$_in_array"; then
+				_in_array="$_in_array \"${1#$_prevstart$_MORE}\""
+				echo "#DEBUG: Found dict array elem ${1#$_prevstart$_MORE}" 1>&2
 			else
 				_prevstart="$_prevstart$_MORE"
 				fill_value "$1"
@@ -184,6 +185,7 @@ $VAL"
 		# TODO: Handle array continuation
 		if startswith "$_prevstart-" "$1"; then
 			_in_array="$_in_array \"${1#$_prevstart- }\""
+			echo "#DEBUG: Found array elem ${1#$_prevstart- }" 1>&2
 		else
 			finalize_var
 			fill_value "$1"
@@ -304,8 +306,9 @@ extract_yaml()
 	_in_multiline=""
 	_in_array=""
 	_VARNM=""
-	LNNO=0
 	SRCH=($(echo "$1" | sed 's/\./ /g'))
+	LNNO=0
+	if test -z "${SRCH[0]}"; then _MORE="  "; else _MORE=""; fi
 	extract_yaml_rec "" "" "${SRCH[@]}"
 	_RET=$?
 	finalize_var
