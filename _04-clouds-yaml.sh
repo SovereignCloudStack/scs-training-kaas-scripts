@@ -63,21 +63,21 @@ fi
 echo "# Generating ~/tmp/clouds-$OS_CLOUD.yaml ..."
 OLD_UMASK=$(umask)
 umask 0177
-INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
+INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 REPLACEKEY=openstack YAMLASSIGN=1 extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML > ~/tmp/clouds-$OS_CLOUD.yaml
+# This is the location that capo wants (we could comment it out)
 sed -i 's@^\(\s*cacert:\).*@\1 /etc/certs/cacert@' ~/tmp/clouds-$OS_CLOUD.yaml
 #echo "octavia_ovn: true" >> ~/tmp/clouds-$OS_CLOUD.yaml
 CL_YAML=$(ls ~/tmp/clouds-$OS_CLOUD.yaml)
 CL_YAML_B64=$(base64 -w0 < "$CL_YAML")
 CL_NAME_B64=$(echo -n openstack | base64 -w0)
 #kubectl create secret -n $CS_NAMESPACE generic clouds-yaml --from-file=$CL_YAML 
-
 umask $OLD_UMASK
 if test -n "$OS_CACERT"; then
 	OS_CACERT=${OS_CACERT/\~/$HOME}
 	CACERT_B64=$(base64 -w0 < $OS_CACERT)
-	# For OCCM and CSI, the location of cacert is /etc/config
+	# For OCCM and CSI, the location of cacert is /etc/openstack
 	CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstack/cacert@' "$CL_YAML"))
-	CLCONF_B64=$(base64 -w0 <<EOT
+	CL_YAML_WL_B64=$(base64 -w0 <<EOT
 apiVersion: v1
 kind: Secret
 type: Opaque
@@ -106,7 +106,9 @@ metadata:
 type: Opaque
 EOT
 else
-	CLCONF_B64=$(base64 -w0 <<EOT
+	# Np CACert
+	# For OCCM + CSI:
+	CL_YAML_WL_B64=$(base64 -w0 <<EOT
 apiVersion: v1
 kind: Secret
 type: Opaque
@@ -140,7 +142,7 @@ fi
 kubectl apply -f - <<EOT
 apiVersion: v1
 data:
-  clouds-yaml-secret: $CLCONF_B64
+  clouds-yaml-secret: $CL_YAML_WL_B64
 kind: Secret
 metadata:
   name: openstack-workload-cluster-newsecret
@@ -149,7 +151,7 @@ metadata:
     clusterctl.cluster.x-k8s.io/move: "true"
 type: addons.cluster.x-k8s.io/resource-set
 EOT
-# Create CRS
+# Create ClusterRS
 kubectl apply -f - <<EOT
 apiVersion: addons.cluster.x-k8s.io/v1beta1
 kind: ClusterResourceSet
@@ -167,3 +169,5 @@ spec:
     - name: openstack-workload-cluster-newsecret
       kind: Secret
 EOT
+
+# TODO: Create old style cloud.config as well

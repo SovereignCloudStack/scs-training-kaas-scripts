@@ -111,8 +111,8 @@ fill_value()
 				echo "#ERROR: multiline or array not expected $_VARNM" 1>&2
 				exit 1
 			else
-				eval $_VARNM="$VAL"
 				yaml_debug 1 "assign $_VARNM=\"$VAL\""
+				eval $_VARNM="$VAL"
 			fi
 		fi
 	fi
@@ -273,7 +273,9 @@ extract_yaml_rec()
 			fi
 			if test -n "$INJECTSUB" -a -n "$INJECTSUBKWD" && startswith "$previndent$more$INJECTSUBKWD:" "$line"; then
 				echo "$INJECTSUB"
-				parse_line "$INJECTSUB"
+				while IFS="" read ln; do
+					parse_line "$ln"
+				done < <(echo "$INJECTSUB")
 				unset INJECTSUB
 			fi
 			continue
