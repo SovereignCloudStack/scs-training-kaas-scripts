@@ -1,5 +1,5 @@
 #!/bin/bash
-# Create cloud secret
+# Create cloud secret -- alternative. Not yet complete.
 set -e
 # We need settings
 unset KUBECONFIG
@@ -63,24 +63,111 @@ fi
 echo "# Generating ~/tmp/clouds-$OS_CLOUD.yaml ..."
 OLD_UMASK=$(umask)
 umask 0177
-INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 REMOVE=cacert extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML | sed "s/^\\(\\s*\\)\\($OS_CLOUD\\):/\\1openstack:/" > ~/tmp/clouds-$OS_CLOUD.yaml
+INJECTSUB="$SECRETS" INJECTSUBKWD="auth" RMVCOMMENT=1 REPLACEKEY=openstack YAMLASSIGN=1 extract_yaml clouds.$OS_CLOUD < $CLOUDS_YAML > ~/tmp/clouds-$OS_CLOUD.yaml
+# This is the location that capo wants (we could comment it out)
+sed -i 's@^\(\s*cacert:\).*@\1 /etc/certs/cacert@' ~/tmp/clouds-$OS_CLOUD.yaml
+#echo "octavia_ovn: true" >> ~/tmp/clouds-$OS_CLOUD.yaml
+CL_YAML=$(ls ~/tmp/clouds-$OS_CLOUD.yaml)
+CL_YAML_B64=$(base64 -w0 < "$CL_YAML")
+CL_NAME_B64=$(echo -n openstack | base64 -w0)
+#kubectl create secret -n $CS_NAMESPACE generic clouds-yaml --from-file=$CL_YAML 
 umask $OLD_UMASK
+if test -n "$OS_CACERT"; then
+	OS_CACERT=${OS_CACERT/\~/$HOME}
+	CACERT_B64=$(base64 -w0 < $OS_CACERT)
+	# For OCCM and CSI, the location of cacert is /etc/openstack
+	CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstack/cacert@' "$CL_YAML"))
+	CL_YAML_WL_B64=$(base64 -w0 <<EOT
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: clouds-yaml
+  namespace: kube-system
+data:
+  clouds.yaml: $CL_YAML_ALT_B64
+  cacert: $CACERT_B64
+  cloudName: $CL_NAME_B64
+EOT
+)
+	# For CAPO
+	kubectl apply -f - << EOT
+apiVersion: v1
+data:
+  clouds.yaml: $CL_YAML_B64
+  cacert: $CACERT_B64
+  cloudName: $CL_NAME_B64
+kind: Secret
+metadata:
+  name: openstack
+  namespace: $CS_NAMESPACE
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
+type: Opaque
+EOT
+else
+	# Np CACert
+	# For OCCM + CSI:
+	CL_YAML_WL_B64=$(base64 -w0 <<EOT
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: clouds-yaml
+  namespace: kube-system
+data:
+  clouds.yaml: $CL_YAML_B64
+  cloudName: $CL_NAME_B64
+EOT
+)
+	# For CAPO
+	kubectl apply -f - << EOT
+apiVersion: v1
+data:
+  clouds.yaml: $CL_YAML_B64
+  cloudName: $CL_NAME_B64
+kind: Secret
+metadata:
+  name: openstack
+  namespace: $CS_NAMESPACE
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
+type: Opaque
+EOT
+fi
 # FIXME: We will provide more settings in cluster-settings.env later, hardcode it for now
 #if test "$CS_CCMLB=octavia-ovn"; then OCTOVN="--set octavia_ovn=true"; else unset OCTOVN; fi
-OCTOVN="--set octavia_ovn=true"
-if test -n "$OS_CACERT"; then
-	echo "# Found CA cert file configured to be \"$OS_CACERT\""
-	OS_CACERT="$(ls ${OS_CACERT/\~/$HOME})"
-	# This will error out as needed
-	# Extract last cert if things get too long (heuristic!)
-	if test $(wc -l < $OS_CACERT) -gt 200; then
-		LASTLN=$(tac $OS_CACERT | grep -n '^-----BEGIN CERTIFICATE-----$' | head -n1 | sed 's/^\([0-9]*\):.*/\1/')
-		CACERT="$(tac $OS_CACERT | head -n $LN | tac)"
-	else
-		CACERT="$(cat $OS_CACERT)"
-	fi
-	# Call the helm helper chart now
-	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f ~/tmp/clouds-$OS_CLOUD.yaml --set cacert="$CACERT" $OCTOVN
-else
-	helm upgrade -i openstack-secrets -n "$CS_NAMESPACE" --create-namespace https://github.com/SovereignCloudStack/openstack-csp-helper/releases/latest/download/openstack-csp-helper.tgz -f ~/tmp/clouds-$OS_CLOUD.yaml $OCTOVN
-fi
+# FIXME: How to pass the information that we want OVN loadbalancers???
+# Workload cluster secret (for OCCM, CSI)
+kubectl apply -f - <<EOT
+apiVersion: v1
+data:
+  clouds-yaml-secret: $CL_YAML_WL_B64
+kind: Secret
+metadata:
+  name: openstack-workload-cluster-newsecret
+  namespace: $CS_NAMESPACE
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
+type: addons.cluster.x-k8s.io/resource-set
+EOT
+# Create ClusterRS
+kubectl apply -f - <<EOT
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  name: crs-openstack-newsecret
+  namespace: $CS_NAMESPACE
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
+spec:
+  strategy: "Reconcile"
+  clusterSelector:
+    matchLabels:
+      managed-secret: clouds-yaml
+  resources:
+    - name: openstack-workload-cluster-newsecret
+      kind: Secret
+EOT
+
+# TODO: Create old style cloud.config as well

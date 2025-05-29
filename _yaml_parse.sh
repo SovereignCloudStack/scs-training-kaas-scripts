@@ -303,11 +303,11 @@ extract_yaml_rec()
 			# TODO: Reformat INSERT to match
 			if test -z "$1"; then
 				NOTFOUND=0
-				if test -n "$INSERT"; then echo "$INSERT"; fi
+				if test -n "$INSERT"; then echo "$INSERT"; parse_line "$INSERT"; fi
 			fi
 			extract_yaml_rec "$previndent$more" "1" "$@"
 			# TODO: Reformat APPEND to match
-			if test -z "$1" -a -n "$APPEND"; then echo "$APPEND"; fi
+			if test -z "$1" -a -n "$APPEND"; then echo "$APPEND"; parse_line "$APPEND"; fi
 			# A return here would allows for only one block of a kind
 			return $NOTFOUND
 			# Otherwise we would have needed to save "$@" adn restore it here
