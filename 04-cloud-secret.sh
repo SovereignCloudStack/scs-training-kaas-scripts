@@ -74,8 +74,7 @@ CL_NAME_B64=$(echo -n openstack | base64 -w0)
 umask $OLD_UMASK
 if test -n "$OS_CACERT"; then
 	OS_CACERT=${OS_CACERT/\~/$HOME}
-	CACERT="$(cat $OS_CACERT)"
-	CACERT_B64=$(echo -n "$CACERT" | base64 -w0)
+	CACERT_B64="$(base64 -w0 < $OS_CACERT)"
 	CAINSERT="
   cacert: $CACERT_B64"
 else
@@ -169,7 +168,7 @@ fi
 umask 0177
 cat >~/tmp/cloud-$OS_CLOUD.conf <<EOT
 [Global]
-auth_url=$clouds__openstack__auth__auth_url
+auth-url=$clouds__openstack__auth__auth_url
 region=$clouds__openstack__region_name$CAFILE
 $AUTHSECTION
 
@@ -180,7 +179,7 @@ create-monitor=true
 $LB_OVN
 EOT
 umask $OLD_UMASK
-CL_CONF_B64=$(base64 -w0 <~/tmp/cloud-$OS_CLOUD.conf)
+CL_CONF_B64="$(base64 -w0 < ~/tmp/cloud-$OS_CLOUD.conf)"
 # CAINSERT is already set above
 CL_YAML_WLOLD_B64=$(base64 -w0 <<EOT
 apiVersion: v1
