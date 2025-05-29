@@ -24,6 +24,12 @@ OLDUMASK=$(umask)
 umask 0077
 clusterctl get kubeconfig -n "$CS_NAMESPACE" $CL_NAME > $KCFG
 umask $OLDUMASK
+WAIT=0
+while test $WAIT -lt 200; do
+	KUBECONFIG=$KCFG kubectl get nodes -o wide >/dev/null 2>&1 && break
+	let WAIT+=10
+	sleep 10
+done
 KUBECONFIG=$KCFG kubectl get nodes -o wide
 KUBECONFIG=$KCFG kubectl get pods -A
-echo "# Hint: Use KUBECONFIG=$KCFG kubectl ... to access you workload cluster $CS_NAMESPACE/$CL_NAME"
+echo "# Hint: Use KUBECONFIG=$KCFG kubectl ... to access your workload cluster -n $CS_NAMESPACE $CL_NAME"
