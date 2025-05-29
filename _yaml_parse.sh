@@ -42,6 +42,18 @@ islinecomment()
 	if test "${LN:0:1}" = "#"; then return 0; else return 1; fi
 }
 
+# debug helper
+# $1: Needed level
+# $2: to output
+yaml_debug()
+{
+	neededlvl=$1
+	shift
+	if test -n "$_yaml_debuglevel" && test $_yaml_debuglevel -ge $neededlvl; then
+		echo "# DEBUG$neededlvl $@" 1>&2
+	fi
+}
+
 ###
 # Assign extracted YAML to shell variables
 # tag1.tag2.tag3-a: val123 becomes tag1__tag2__tag3_a=val123
@@ -80,34 +92,27 @@ fill_value()
 		if test "${VAL:0:1}" = "{"; then
 			 while IFS=": " read k p; do
 				 eval ${_VARNM}__$k="$p"
-				 echo "#DEBUG1: ${_VARNM}__$k=\"$p\"" 1>&2
+				 yaml_debug 1 "dict ${_VARNM}__$k=\"$p\""
 			 done < <(echo "$VAL" | sed -e 's/{//' -e 's/}//' -e 's/,/\n/g')
 		# Arrays
 		elif test "${VAL:0:1}" = "["; then
+			# FIXME: [ { , }, { , } ] won't be handled correctly
+			# Ideas: sed 's/\({[^}]*}\)/\1/' extracts these, temporarily replace , with :: or so
 			eval $_VARNM="("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")"
-			echo "#DEBUG2: ${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))" 1>&2
+			yaml_debug 1 "arr ${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))"
 		# Multiline
 		elif test "${VAL:0:1}" = "|"; then
 			_in_multiline="#MARKER"
-			echo "#DEBUG: Found multiline marker $VAL" 1>&2
+			yaml_debug 2 "Found multiline marker $VAL"
 			#_prevstart="$_prevstart$_MORE"
 		# None of the above
 		else
-			# Append multiline string
-			if test -n "$_in_multiline"; then
-				echo "#ERROR1" 1>&2
-				if test "$_in_multiline" = "#MARKER"; then
-					_in_multiline="$VAL"
-				else
-					_in_multiline="$_in_multiline
-$VAL"
-				fi
-			elif test -n "$_in_array"; then
-				_in_array="$_in_array \"$VAL\""
-				echo "#ERROR2" 1>&2
+			if test -n "$_in_multiline" -o -n "$_in_array"; then
+				echo "#ERROR: multiline or array not expected $_VARNM" 1>&2
+				exit 1
 			else
 				eval $_VARNM="$VAL"
-				echo "#DEBUG3: $_VARNM=\"$VAL\"" 1>&2
+				yaml_debug 1 "assign $_VARNM=\"$VAL\""
 			fi
 		fi
 	fi
@@ -118,13 +123,17 @@ finalize_var()
 {
 	if test -z "$YAMLASSIGN"; then return; fi
 	if test -n "$_in_multiline"; then
-		echo "#DEBUG4: $_VARNM=\"$_in_multiline\"" 1>&2
+		yaml_debug 1 "multiline $_VARNM=\"$_in_multiline\""
 		eval $_VARNM="\"$_in_multiline\""
 		_in_multiline=""
 	elif test -n "$_in_array"; then
-		echo "#DEBUG5: $_VARNM=($_in_array)" 1>&2
-		eval $_VARNM="("$_in_array")"
+		yaml_debug 1 "array $_VARNM=($_in_array\")"
+		eval $_VARNM="($_in_array\")"
 		_in_array=""
+		if test -n "$_over"; then
+			unset _over
+			_prevstart="${_prevstart%$_MORE}"
+		fi
 	fi
 	if test "${_VARNM%__*}" = "$_VARNM"; then
 		_VARNM=""
@@ -157,8 +166,8 @@ parse_line()
 	# of the content of an array element.
 	# Case (a)
 	if startswith "$_prevstart$_MORE" "$1"; then
+		VAL="${1#$_prevstart$_MORE}"
 		if test -n "$_in_multiline"; then
-			VAL="${1#$_prevstart$_MORE}"
 			if test "$_in_multiline" = "#MARKER"; then
 				_in_multiline="$VAL"
 			else
@@ -166,15 +175,19 @@ parse_line()
 $VAL"
 			fi
 		else
-			# only accept addtl indentation for first element
-			if startswith "$_prevstart$_MORE-" "$1" && test -z "$_in_array"; then
+			# If we are already in an array, then we continue saving the contents
+			# $_prevstart- denotes next element, $_prevstart$_MORE is continuation
+			if test -n "$_in_array"; then
+				_in_array="$_in_array
+$VAL"
+			# Beginning of an array (with optional addtl indentation)
+			elif startswith "- " "$VAL"; then
+				_prevstart="$_prevstart$_MORE"
 				#TODO: Parse dicts in array
-				_in_array="$_in_array \"${1#$_prevstart$_MORE- }\""
-				echo "#DEBUG: Found array start ${1#$_prevstart$_MORE- }" 1>&2
+				_in_array="\"${VAL#- }"	# Open \" is intentional
+				yaml_debug 2 "Found overindented array start ${1#$_prevstart$_MORE- }"
+				_over=1
 			# A new dict field in the array
-			elif test -n "$_in_array"; then
-				_in_array="$_in_array \"${1#$_prevstart$_MORE}\""
-				echo "#DEBUG: Found dict array elem ${1#$_prevstart$_MORE}" 1>&2
 			else
 				_prevstart="$_prevstart$_MORE"
 				fill_value "$1"
@@ -182,13 +195,18 @@ $VAL"
 		fi
 	# Case (b)
 	else
-		# TODO: Handle array continuation
-		if startswith "$_prevstart-" "$1"; then
-			_in_array="$_in_array \"${1#$_prevstart- }\""
-			echo "#DEBUG: Found array elem ${1#$_prevstart- }" 1>&2
-		else
+		VAL="${1#$_prevstart}"
+		if ! startswith "- " "$VAL"; then
 			finalize_var
 			fill_value "$1"
+		elif test -n "$_in_array"; then
+			# Handle array continuation
+			_in_array="$_in_array\" \"${VAL#- }"
+			yaml_debug 2 "Next array element ${VAL#- }"
+		else
+			# Handle array start
+			_in_array="\"${VAL#- }"	# Open \" is intentional
+			yaml_debug 2 "Found array start ${VAL#- }"
 		fi
 	fi
 }
@@ -305,6 +323,7 @@ extract_yaml()
 	_prevstart=""
 	_in_multiline=""
 	_in_array=""
+	unset _over
 	_VARNM=""
 	SRCH=($(echo "$1" | sed 's/\./ /g'))
 	LNNO=0
@@ -315,3 +334,17 @@ extract_yaml()
 	return $_RET
 }
 
+### helper for users
+# $1 => var name
+is_array()
+{
+	local OUT="$(declare -p $1 2>/dev/null)"
+	if test $? = 0 && startswith "declare -a" "$OUT"; then return 0; else return 1; fi
+}
+
+### helper for users
+# $1 => variable/line
+is_dict()
+{
+	if test "${1%:*}" != "$1"; then return 0; else return 1; fi
+}
