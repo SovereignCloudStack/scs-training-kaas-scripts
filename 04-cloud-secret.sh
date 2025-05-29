@@ -74,7 +74,8 @@ CL_NAME_B64=$(echo -n openstack | base64 -w0)
 umask $OLD_UMASK
 if test -n "$OS_CACERT"; then
 	OS_CACERT=${OS_CACERT/\~/$HOME}
-	CACERT_B64=$(base64 -w0 < $OS_CACERT)
+	CACERT="$(cat $OS_CACERT)"
+	CACERT_B64=$(echo -n "$CACERT" | base64 -w0)
 	CAINSERT="
   cacert: $CACERT_B64"
 else
@@ -190,6 +191,7 @@ metadata:
   namespace: kube-system
 data:
   cloud.conf: $CL_CONF_B64$CAINSERT
+  cloudprovider.conf: $CL_CONF_B64
 EOT
 )
 kubectl apply -f - <<EOT
