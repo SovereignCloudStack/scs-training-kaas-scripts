@@ -49,7 +49,7 @@ OLD_UMASK=$(umask)
 #   C. We have none: Create one
 
 # Store it securely in ~/tmp/clouds-$OS_CLOUD.yaml
-echo "# Generating ~/tmp/clouds-$OS_CLOUD.yaml ..."
+echo "# Parsing ~/tmp/clouds-$OS_CLOUD.yaml ..."
 YAMLASSIGN=1 extract_yaml clouds.openstack < ~/tmp/clouds-$OS_CLOUD.yaml >/dev/null
 if test -z "$PREFER_AMPHORA"; then
 	LB_OVN="lb-provider=ovn
