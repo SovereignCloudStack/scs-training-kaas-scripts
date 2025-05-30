@@ -80,6 +80,9 @@ if test -n "$OS_CACERT"; then
 else
 	unset CAINSERT
 fi
+# TODO: Split secret for capo (which is shared with all clusters in this namespace
+#  and the workload-cluster-secrets (which could be individual AppCreds generated
+#  and rotated as needed).
 # For OCCM and CSI, the location of cacert is /etc/openstack
 CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstack/cacert@' "$CL_YAML"))
 CL_YAML_WL_B64=$(base64 -w0 <<EOT
