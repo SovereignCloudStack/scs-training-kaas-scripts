@@ -3,6 +3,7 @@
 set -e
 # We need settings
 unset KUBECONFIG
+if test "$1" = "-f"; then shift; FORCE=1; fi
 if test -n "$1"; then
 	SET="$1"
 else
@@ -211,7 +212,7 @@ else
 	if test -n "$APPCRED_ID"; then
 		AC_EXPDATE=$(openstack application credential show $APPCRED_ID -c expires_at -f value)
 		AC_EXPIRY=$(date -d $AC_EXPDATE +%s)
-		if test $(($AC_EXPIRY-$NOW)) -gt $(($LIFETIME/3)); then
+		if test -z "$FORCE" -a $(($AC_EXPIRY-$NOW)) -gt $(($LIFETIME/3)); then
 			echo "# AppCred still has >1/3 validity, not renewing"
 			exit 0
 		fi
@@ -240,7 +241,7 @@ clouds:
     auth:
       auth_url: $clouds__openstack__auth__auth_url
       application_credential_id: $APPCRED_ID
-      application_crednetial_secret: $APPCRED_SECRET
+      application_credential_secret: $APPCRED_SECRET
 EOT
 	# ... and cloud.conf using the AppCred
 	cat << EOT > ~/tmp/cloud-$CS_NAMESPACE-$CL_NAME.conf
