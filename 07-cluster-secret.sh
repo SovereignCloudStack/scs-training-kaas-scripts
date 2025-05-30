@@ -82,7 +82,6 @@ EOT
 	CL_CONF_WL_B64=$(base64 -w0 <<EOT
 apiVersion: v1
 kind: Secret
-1.001
 type: Opaque
 metadata:
   name: cloud-config
@@ -214,24 +213,25 @@ else
 		AC_EXPIRY=$(date -d $AC_EXPDATE +%s)
 		if test -z "$FORCE" -a $(($AC_EXPIRY-$NOW)) -gt $(($LIFETIME/3)); then
 			echo "# AppCred still has >1/3 validity, not renewing"
-			exit 0
+			SKIP_NEWAC=1
+		else
+			APPCRED_DELETE=$APPCRED_ID
 		fi
-		# If we get here, the AppCred will be renewed.
-		APPCRED_DELETE=$APPCRED_ID
 	fi
 	# Create *restricted* application credential
-	echo "# Creating new AppCred $APPCRED_NAME with validity until $EXPDATE"
-	NEWCRED=$(openstack application credential create "$APPCRED_NAME" --expiration "$EXPDATE" --description "App Cred for K8s cluster -n $CS_NAMESPACE $CL_NAME" -f value -c id -c project_id -c secret)
-	read APPCRED_ID APPCRED_PRJ APPCRED_SECRET < <(echo $NEWCRED)
-	# Now create clouds.yaml using the AppCred
-	if test -n "$OS_CACERT"; then
-		CACERTYAML="
+	if test -z "$SKIP_NEWAC"; then
+		echo "# Creating new AppCred $APPCRED_NAME with validity until $EXPDATE"
+		NEWCRED=$(openstack application credential create "$APPCRED_NAME" --expiration "$EXPDATE" --description "App Cred for K8s cluster -n $CS_NAMESPACE $CL_NAME" -f value -c id -c project_id -c secret)
+		read APPCRED_ID APPCRED_PRJ APPCRED_SECRET < <(echo $NEWCRED)
+		# Now create clouds.yaml using the AppCred
+		if test -n "$OS_CACERT"; then
+			CACERTYAML="
     cacert: /etc/openstack/cacert"
-	else
-		unset CACERTYAML
-	fi
-	umask 0177
-	cat << EOT > ~/tmp/clouds-$CS_NAMESPACE-$CL_NAME.yaml
+		else
+			unset CACERTYAML
+		fi
+		umask 0177
+		cat << EOT > ~/tmp/clouds-$CS_NAMESPACE-$CL_NAME.yaml
 clouds:
   openstack:
     region_name: $clouds__openstack__region_name
@@ -243,14 +243,14 @@ clouds:
       application_credential_id: $APPCRED_ID
       application_credential_secret: $APPCRED_SECRET
 EOT
-	# ... and cloud.conf using the AppCred
-	cat << EOT > ~/tmp/cloud-$CS_NAMESPACE-$CL_NAME.conf
+		# ... and cloud.conf using the AppCred
+		cat << EOT > ~/tmp/cloud-$CS_NAMESPACE-$CL_NAME.conf
 [Global]
 auth-url=$clouds__openstack__auth__auth_url
 region=$clouds__openstack__region_name$CAFILE
 application-credential-id=$APPCRED_ID
 application-credential-secret=$APPCRED_SECRET
-#project_id=${clouds__openstack__auth__project_id:-$APPCRED_PRJ}
+#project-id=${clouds__openstack__auth__project_id:-$APPCRED_PRJ}
 
 [LoadBalancer]
 manage-security-groups=true
@@ -258,7 +258,8 @@ enable-ingress-hostname=true
 create-monitor=true
 $LB_OVN
 EOT
-	umask $OLD_UMASK
+		umask $OLD_UMASK
+	fi
 	create_clouds_yaml_conf_crs ~/tmp/clouds-$CS_NAMESPACE-$CL_NAME.yaml ~/tmp/cloud-$CS_NAMESPACE-$CL_NAME.conf -$CL_NAME
 	if test -n "$APPCRED_DELETE"; then
 		# Allow 2s for the AppCred to propagate into the cluster
