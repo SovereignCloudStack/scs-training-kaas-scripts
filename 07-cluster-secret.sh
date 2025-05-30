@@ -50,40 +50,20 @@ OLD_UMASK=$(umask)
 # Store it securely in ~/tmp/clouds-$OS_CLOUD.yaml
 echo "# Generating ~/tmp/clouds-$OS_CLOUD.yaml ..."
 YAMLASSIGN=1 extract_yaml clouds.openstack < ~/tmp/clouds-$OS_CLOUD.yaml >/dev/null
-
-# Case 1
-if test -z "$CL_APPCRED_LIFETIME" -o "$CL_APPCRED_LIFETIME" = 0; then
-	if test -n "$clouds__openstack__auth__application_credential_id"; then
-		AUTHSECTION="application-credential-id=$clouds__openstack__application_credential_id
-application-credential-secret=$clouds__openstack__aplication_credential_secret"
-	else
-		AUTHSECTION="username=$clouds__openstack__auth__username
-password=$clouds__openstack__auth__password
-user-domain-name=$clouds__openstack__auth__user_domain_name
-domain-name=${clouds__openstack__auth__domain_name:-$clouds__openstack__auth__project_domain_name}
-tenant-id=$clouds__openstack__auth__project_id
-project-id=$clouds__openstack__auth__project_id"
-	fi
-	if test -z "$PREFER_AMPHORA"; then
-		LB_OVN="lb-provider=ovn
+if test -z "$PREFER_AMPHORA"; then
+	LB_OVN="lb-provider=ovn
 lb-method=SOURCE_IP_PORT"
-	fi
-	umask 0177
-	cat >~/tmp/cloud-$OS_CLOUD.conf <<EOT
-[Global]
-auth-url=$clouds__openstack__auth__auth_url
-region=$clouds__openstack__region_name$CAFILE
-$AUTHSECTION
+fi
 
-[LoadBalancer]
-manage-security-groups=true
-enable-ingress-hostname=true
-create-monitor=true
-$LB_OVN
-EOT
-	umask $OLD_UMASK
-	CL_CONF_B64="$(base64 -w0 < ~/tmp/cloud-$OS_CLOUD.conf)"
-	CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstack/cacert@' "$CL_YAML"))
+# Helper: Create workload-secrets clouds.yaml and cloud.conf
+#  and clusterresourceset structures to automanage them
+# $1 => clouds.yaml to use
+# $2 => cloud.conf to use
+# $3 => Name suffix
+create_clouds_yaml_conf_crs()
+{
+	CL_CONF_B64="$(base64 -w0 < $2)"
+	CL_YAML_ALT_B64=$(base64 -w0 < <(sed 's@/etc/certs/cacert@/etc/openstack/cacert@' $1))
 	# Workload cluster clouds-yaml
 	CL_YAML_WL_B64=$(base64 -w0 <<EOT
 apiVersion: v1
@@ -101,6 +81,7 @@ EOT
 	CL_CONF_WL_B64=$(base64 -w0 <<EOT
 apiVersion: v1
 kind: Secret
+1.001
 type: Opaque
 metadata:
   name: cloud-config
@@ -116,7 +97,7 @@ data:
   clouds-yaml-secret: $CL_YAML_WL_B64
 kind: Secret
 metadata:
-  name: openstack-workload-cluster-newsecret
+  name: openstack-workload-cluster-newsecret$3
   namespace: $CS_NAMESPACE
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
@@ -125,7 +106,7 @@ type: addons.cluster.x-k8s.io/resource-set
 apiVersion: addons.cluster.x-k8s.io/v1beta1
 kind: ClusterResourceSet
 metadata:
-  name: crs-openstack-newsecret
+  name: crs-openstack-newsecret$3
   namespace: $CS_NAMESPACE
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
@@ -133,9 +114,9 @@ spec:
   strategy: "Reconcile"
   clusterSelector:
     matchLabels:
-      managed-secret: clouds-yaml
+      managed-secret: clouds-yaml$3
   resources:
-    - name: openstack-workload-cluster-newsecret
+    - name: openstack-workload-cluster-newsecret$3
       kind: Secret
 ---
 apiVersion: v1
@@ -143,7 +124,7 @@ data:
   cloud-config-secret: $CL_CONF_WL_B64
 kind: Secret
 metadata:
-  name: openstack-workload-cluster-secret
+  name: openstack-workload-cluster-secret$3
   namespace: $CS_NAMESPACE
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
@@ -152,7 +133,7 @@ type: addons.cluster.x-k8s.io/resource-set
 apiVersion: addons.cluster.x-k8s.io/v1beta1
 kind: ClusterResourceSet
 metadata:
-  name: crs-openstack-secret
+  name: crs-openstack-secret$3
   namespace: $CS_NAMESPACE
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
@@ -160,13 +141,44 @@ spec:
   strategy: "Reconcile"
   clusterSelector:
     matchLabels:
-      managed-secret: cloud-config
+      managed-secret: cloud-config$3
   resources:
-    - name: openstack-workload-cluster-secret
+    - name: openstack-workload-cluster-secret$3
       kind: Secret
 EOT
+}
+
+# Case 1
+if test -z "$CL_APPCRED_LIFETIME" -o "$CL_APPCRED_LIFETIME" = 0; then
+	if test -n "$clouds__openstack__auth__application_credential_id"; then
+		AUTHSECTION="application-credential-id=$clouds__openstack__application_credential_id
+application-credential-secret=$clouds__openstack__aplication_credential_secret"
+	else
+		AUTHSECTION="username=$clouds__openstack__auth__username
+password=$clouds__openstack__auth__password
+user-domain-name=$clouds__openstack__auth__user_domain_name
+domain-name=${clouds__openstack__auth__domain_name:-$clouds__openstack__auth__project_domain_name}
+tenant-id=$clouds__openstack__auth__project_id
+project-id=$clouds__openstack__auth__project_id"
+	fi
+	umask 0177
+	cat >~/tmp/cloud-$OS_CLOUD.conf <<EOT
+[Global]
+auth-url=$clouds__openstack__auth__auth_url
+region=$clouds__openstack__region_name$CAFILE
+$AUTHSECTION
+
+[LoadBalancer]
+manage-security-groups=true
+enable-ingress-hostname=true
+create-monitor=true
+$LB_OVN
+EOT
+	umask $OLD_UMASK
+	create_clouds_yaml_conf_crs $CL_YAML ~/tmp/cloud-$OS_CLOUD.conf ""
 else
 	# Lifetime
+	unset TZ
 	declare -i LIFETIME=$((${CL_APPCRED_LIFETIME%.*}*24*3600))
 	# Deal with fractions (but only up to 1/1000: 86.4s granularity)
 	if test "${CL_APPCRED_LIFETIME%.*}" != "$CL_APPCRED_LIFETIME"; then
@@ -176,7 +188,80 @@ else
 	NOW=$(date +%s)
 	EXPIRY=$((NOW+LIFETIME))
 	EXPDATE=$(date -d @$EXPIRY +%FT%T)
-	echo "# Application Credentials with $LIFETIME sec requested (expires $EXPDATE)"
-	echo "ERROR: Application credential support not yet implemented."
-	exit 10
+	if ! type -p openstack >/dev/null 2>&1; then
+		echo "ERROR: Need openstack client tools to manage App Creds"
+		exit 10
+	fi
+	APPCREDS=$(openstack application credential list -f value -c ID -c Name -c "Project ID")
+	# We find them by name and alternate them to avoid downtimes
+	APPCRED_NAME1="CS-$CS_NAMESPACE-$CL_NAME-AppCred1"
+	APPCRED_NAME2="CS-$CS_NAMESPACE-$CL_NAME-AppCred2"
+	APPCRED_NAME="$APPCRED_NAME1"
+	while read id nm prjid; do
+		#echo "\"$nm\" \"$prjid\" \"$id\""
+		if test "$nm" = "CS-$CS_NAMESPACE-$CL_NAME-AppCred1" -o "$nm" = "CS-$CS_NAMESPACE-$CL_NAME-AppCred2"; then
+			echo "# Found AppCred $nm $id"
+			# Chose the other name
+			APPCRED_NAME=${nm:0:-1}$(((${nm:$((${#nm}-1)):1}%2)+1))
+			APPCRED_ID=$id
+			APPCRED_PRJ=$prjid
+			break
+		fi
+	done < <(echo "$APPCREDS")
+	if test -n "$APPCRED_ID"; then
+		AC_EXPDATE=$(openstack application credential show $APPCRED_ID -c expires_at -f value)
+		AC_EXPIRY=$(date -d $AC_EXPDATE +%s)
+		if test $(($AC_EXPIRY-$NOW)) -gt $(($LIFETIME/3)); then
+			echo "# AppCred still has >1/3 validity, not renewing"
+			exit 0
+		fi
+		# If we get here, the AppCred will be renewed.
+		APPCRED_DELETE=$APPCRED_ID
+	fi
+	# Create *restricted* application credential
+	echo "# Creating new AppCred $APPCRED_NAME with validity until $EXPDATE"
+	NEWCRED=$(openstack application credential create "$APPCRED_NAME" --expiration "$EXPDATE" --description "App Cred for K8s cluster -n $CS_NAMESPACE $CL_NAME" -f value -c id -c project_id -c secret)
+	read APPCRED_ID APPCRED_PRJ APPCRED_SECRET < <(echo $NEWCRED)
+	# Now create clouds.yaml using the AppCred
+	if test -n "$OS_CACERT"; then
+		CACERTYAML="
+    cacert: /etc/openstack/cacert"
+	else
+		unset CACERTYAML
+	fi
+	umask 0177
+	cat << EOT > ~/tmp/clouds-$CS_NAMESPACE-$CL_NAME.yaml
+clouds:
+  openstack:
+    region_name: $clouds__openstack__region_name
+    auth_type: v3applicationcredential
+    interface: $clouds__openstack__interface
+    identity_api_version: $clouds__openstack__identity_api_version$CACERTYAML
+    auth:
+      auth_url: $clouds__openstack__auth__auth_url
+      application_credential_id: $APPCRED_ID
+      application_crednetial_secret: $APPCRED_SECRET
+EOT
+	# ... and cloud.conf using the AppCred
+	cat << EOT > ~/tmp/cloud-$CS_NAMESPACE-$CL_NAME.conf
+[Global]
+auth-url=$clouds__openstack__auth__auth_url
+region=$clouds__openstack__region_name$CAFILE
+application-credential-id=$APPCRED_ID
+application-credential-secret=$APPCRED_SECRET
+#project_id=${clouds__openstack__auth__project_id:-$APPCRED_PRJ}
+
+[LoadBalancer]
+manage-security-groups=true
+enable-ingress-hostname=true
+create-monitor=true
+$LB_OVN
+EOT
+	umask $OLD_UMASK
+	create_clouds_yaml_conf_crs ~/tmp/clouds-$CS_NAMESPACE-$CL_NAME.yaml ~/tmp/cloud-$CS_NAMESPACE-$CL_NAME.conf -$CL_NAME
+	if test -n "$APPCRED_DELETE"; then
+		# Allow 2s for the AppCred to propagate into the cluster
+		sleep 2
+		openstack application credential delete $APPCRED_DELETE
+	fi
 fi

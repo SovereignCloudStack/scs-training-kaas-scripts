@@ -30,6 +30,10 @@ CLOUDS_YAML=${CLOUDS_YAML:-~/.config/openstack/clouds.yaml}
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
 CA=$(RMVTREE=1 extract_yaml clouds.$OS_CLOUD.cacert <$CLOUDS_YAML | sed 's/^\s*cacert: //' || true)
 OS_CACERT="${OS_CACERT:-$CA}"
+# TODO:
+# We could generate an unrestricted AppCred here for CAPO/ORC
+# This could then also withdrawn if we want all cluster management to stop
+#
 # Extract auth parts from secure.yaml if existent, assume same indentation
 SEC_YAML="${CLOUDS_YAML%clouds.yaml}secure.yaml"
 if test -r "$SEC_YAML"; then SECRETS=$(RMVTREE=1 RMVCOMMENT=1 extract_yaml clouds.$OS_CLOUD.auth < $SEC_YAML || true); fi
