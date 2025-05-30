@@ -37,13 +37,17 @@ if test "${CS_VERSION:0:1}" = "["; then
 fi
 # TODO: There are a number of variables that allow us to set things like
 #  flavors, disk sizes, loadbalancer types, etc.
-# TODO: Check whether we have a per cluster App Cred CL_APPCRED_LIFETIME
+if test -n "$CL_APPCRED_LIFETIME" -a "$CL_APPCRED_LIFETIME" != "0"; then
+	SECRETSUFFIX=-$CL_NAME
+else
+	unset SECRETSUFFIX
+fi
 # Distinguish between old (cloud.config) and new style (clouds.yaml) secrets
 # This depends on the clusterstackrelease, not on whether or not we have a newsecret
 if kubectl get -n ciabns clusterstackreleases.clusterstack.x-k8s.io -n ciabns openstack-scs-${CS_MAINVER/./-}-${CS_VERSION/./-} -o jsonpath='{.status.resources}' | grep openstack-scs-${CS_MAINVER/./-}-${CS_VERSION}-clouds-yaml >/dev/null 2>&1; then
-	MGD_SEC="managed-secret: clouds-yaml"
+	MGD_SEC="managed-secret: clouds-yaml$SECRETSUFFIX"
 else
-	MGD_SEC="managed-secret: cloud-config"
+	MGD_SEC="managed-secret: cloud-config$SECRETSUFFIX"
 fi
 #  We need to make them visible!
 cat > ~/tmp/cluster-$CL_NAME.yaml <<EOF

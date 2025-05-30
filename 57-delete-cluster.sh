@@ -15,4 +15,9 @@ source "$SET"
 if test -z "$CS_NAMESPACE"; then echo "Configure CS_NAMESPACE"; exit 2; fi
 if test -z "$CL_NAME"; then echo "Configure CL_NAME"; exit 5; fi
 # Delete Cluster
+echo "# Please ensure you have emptied the cluster from resources that create PVs or LBs"
+sleep 2
 kubectl delete -n "$CS_NAMESPACE" cluster "$CL_NAME"
+if test -n "$CL_APPCRED_LIFETIME" -a "$CL_APPCRED_LIFETIME" != "0"; then
+	openstack application credential delete "CS-$CS_NAMESPACE-$CL_NAME-AppCred1" "CS-$CS_NAMESPACE-$CL_NAME-AppCred2" || true
+fi
