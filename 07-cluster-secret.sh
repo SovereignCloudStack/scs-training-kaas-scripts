@@ -166,6 +166,17 @@ spec:
       kind: Secret
 EOT
 else
+	# Lifetime
+	declare -i LIFETIME=$((${CL_APPCRED_LIFETIME%.*}*24*3600))
+	# Deal with fractions (but only up to 1/1000: 86.4s granularity)
+	if test "${CL_APPCRED_LIFETIME%.*}" != "$CL_APPCRED_LIFETIME"; then
+	       FRAC=${CL_APPCRED_LIFETIME#*.}000
+	       LIFETIME+=$(((10#${FRAC:0:3}*24*36)/10+1))
+	fi
+	NOW=$(date +%s)
+	EXPIRY=$((NOW+LIFETIME))
+	EXPDATE=$(date -d @$EXPIRY +%FT%T)
+	echo "# Application Credentials with $LIFETIME sec requested (expires $EXPDATE)"
 	echo "ERROR: Application credential support not yet implemented."
 	exit 10
 fi
