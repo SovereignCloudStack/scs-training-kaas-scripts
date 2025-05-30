@@ -28,7 +28,8 @@ if test "${CS_VERSION:0:1}" = "["; then
 		if test "$csnm" = "NAME"; then continue; fi
 		if test "$k8sver" = "v$CL_PATCHVER"; then
 			CS_VERSION="v${csnm#openstack-scs-?-??-v}"
-			CS_VERSION="${CS_VERSION%-*}.${CS_VERSION##*-}"
+			CS_VERSION="${CS_VERSION//-/.}"
+			CS_VERSION="${CS_VERSION/./-}"
 			break
 		fi
 	done < <(echo "$VERSIONS")
@@ -36,6 +37,14 @@ if test "${CS_VERSION:0:1}" = "["; then
 fi
 # TODO: There are a number of variables that allow us to set things like
 #  flavors, disk sizes, loadbalancer types, etc.
+# Distinguish between old (cloud.config) and new style (clouds.yaml) secrets
+# FIXME: This depends on the clusterstackrelease, not on whether or not we have a newsecret
+#if kubectl get -n ciabns clusterresourceset crs-openstack-newsecret >/dev/null 2>&1; then
+if kubectl get -n ciabns clusterstackreleases.clusterstack.x-k8s.io -n ciabns openstack-scs-${CS_MAINVER/./-}-${CS_VERSION/./-} -o jsonpath='{.status.resources}' | grep openstack-scs-${CS_MAINVER/./-}-${CS_VERSION}-clouds-yaml >/dev/null 2>&1; then
+	MGD_SEC="managed-secret: clouds-yaml"
+else
+	MGD_SEC="managed-secret: cloud-config"
+fi
 #  We need to make them visible!
 cat > ~/tmp/cluster-$CL_NAME.yaml <<EOF
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -44,7 +53,7 @@ metadata:
   name: "$CL_NAME"
   namespace: "$CS_NAMESPACE"
   labels:
-    managed-secret: cloud-config
+    $MGD_SEC
 spec:
   clusterNetwork:
     pods:

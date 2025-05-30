@@ -13,6 +13,7 @@ if test $DOCKERMTU -gt $CLOUDMTU; then
 fi
 # Create kind cluster
 if test "$(kind get clusters)" != "kind"; then
+	unset KUBECONFIG
 	kind create cluster
 else
 	echo "kind cluster already running"

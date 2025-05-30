@@ -27,7 +27,8 @@ if test "${CS_VERSION:0:1}" = "["; then
 		if test "$csnm" = "NAME"; then continue; fi
 		if test "$k8sver" = "v$CL_PATCHVER"; then
 			CS_VERSION="v${csnm#openstack-scs-?-??-v}"
-			CS_VERSION="${CS_VERSION%-*}.${CS_VERSION##*-}"
+			CS_VERSION="${CS_VERSION//-/.}"
+			CS_VERSION="${CS_VERSION/./-}"
 			break
 		fi
 	done < <(echo "$VERSIONS")
