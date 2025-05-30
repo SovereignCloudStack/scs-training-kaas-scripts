@@ -19,5 +19,10 @@ echo "# Please ensure you have emptied the cluster from resources that create PV
 sleep 2
 kubectl delete -n "$CS_NAMESPACE" cluster "$CL_NAME"
 if test -n "$CL_APPCRED_LIFETIME" -a "$CL_APPCRED_LIFETIME" != "0"; then
-	openstack application credential delete "CS-$CS_NAMESPACE-$CL_NAME-AppCred1" "CS-$CS_NAMESPACE-$CL_NAME-AppCred2" || true
+	echo "# Cleaning up secrets and Application Credential"
+	kubectl delete -n $CS_NAMESPACE clusterresourceset crs-openstack-newsecret-$CL_NAME
+	kubectl delete -n $CS_NAMESPACE clusterresourceset crs-openstack-secret-$CL_NAME
+	kubectl delete -n $CS_NAMESPACE secret openstack-workload-cluster-newsecret-$CL_NAME 2>/dev/null || true
+	kubectl delete -n $CS_NAMESPACE secret openstack-workload-cluster-secret-$CL_NAME 2>/dev/null || true
+	openstack application credential delete "CS-$CS_NAMESPACE-$CL_NAME-AppCred1" "CS-$CS_NAMESPACE-$CL_NAME-AppCred2" 2>/dev/null || true
 fi
