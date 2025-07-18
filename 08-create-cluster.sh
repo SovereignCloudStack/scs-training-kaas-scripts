@@ -51,6 +51,25 @@ if test "$CFGSTYLE" = "clouds-yaml"; then
 else
 	MGD_SEC="managed-secret: cloud-config$SECRETSUFFIX"
 fi
+# Additional variables
+#  Compatibility with old defaults
+if ! grep CL_VARIABLES "$SET" >/dev/null 2>&1; then
+	CL_VARIABLES="apiserver_loadbalancer=octavia-ovn"
+fi
+#  Turn them into YAML
+if test -n "$CL_VARIABLES"; then
+	CL_VARS="    variables:
+"
+	while read KVPAIR; do
+		KEY="${KVPAIR%%=*}"
+		KEY="${KEY## *}"
+		VAL="${KVPAIR#*=}"
+		CL_VARS="$CL_VARS      - name: $KEY
+        value: $VAL
+"
+	done < <(echo "$CL_VARIABLES" | sed 's/;/\n/g')
+	# echo "$CL_VARS"
+fi
 #  We need to make them visible!
 cat > ~/tmp/cluster-$CL_NAME.yaml <<EOF
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -79,8 +98,6 @@ spec:
         - class: default-worker
           name: md-0
           replicas: $CL_WRKRNODES
-    variables:
-      - name: apiserver_loadbalancer
-        value: "octavia-ovn"
+$CL_VARS
 EOF
 kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
