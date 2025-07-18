@@ -44,10 +44,31 @@ else
 fi
 # Distinguish between old (cloud.config) and new style (clouds.yaml) secrets
 # This depends on the clusterstackrelease, not on whether or not we have a newsecret
-if kubectl get -n $CS_NAMESPACE clusterstackreleases.clusterstack.x-k8s.io openstack-scs-${CS_MAINVER/./-}-${CS_VERSION/./-} -o jsonpath='{.status.resources}' | grep openstack-scs-${CS_MAINVER/./-}-${CS_VERSION}-clouds-yaml >/dev/null 2>&1; then
+#if kubectl get -n $CS_NAMESPACE clusterstackreleases.clusterstack.x-k8s.io openstack-scs-${CS_MAINVER/./-}-${CS_VERSION/./-} -o jsonpath='{.status.resources}' | grep openstack-scs-${CS_MAINVER/./-}-${CS_VERSION}-clouds-yaml >/dev/null 2>&1; then
+CFGSTYLE=$(kubectl get clusterclasses.cluster.x-k8s.io -n $CS_NAMESPACE openstack-scs-${CS_MAINVER/./-}-$CS_VERSION -o jsonpath='{.metadata.annotations.configStyle}' || true)
+if test "$CFGSTYLE" = "clouds-yaml"; then
 	MGD_SEC="managed-secret: clouds-yaml$SECRETSUFFIX"
 else
 	MGD_SEC="managed-secret: cloud-config$SECRETSUFFIX"
+fi
+# Additional variables
+#  Compatibility with old defaults
+if ! grep CL_VARIABLES "$SET" >/dev/null 2>&1; then
+	CL_VARIABLES="apiserver_loadbalancer=octavia-ovn"
+fi
+#  Turn them into YAML
+if test -n "$CL_VARIABLES"; then
+	CL_VARS="    variables:
+"
+	while read KVPAIR; do
+		KEY="${KVPAIR%%=*}"
+		KEY="${KEY## *}"
+		VAL="${KVPAIR#*=}"
+		CL_VARS="$CL_VARS      - name: $KEY
+        value: $VAL
+"
+	done < <(echo "$CL_VARIABLES" | sed 's/;/\n/g')
+	# echo "$CL_VARS"
 fi
 #  We need to make them visible!
 cat > ~/tmp/cluster-$CL_NAME.yaml <<EOF
@@ -77,8 +98,6 @@ spec:
         - class: default-worker
           name: md-0
           replicas: $CL_WRKRNODES
-    variables:
-      - name: apiserver_loadbalancer
-        value: "octavia-ovn"
+$CL_VARS
 EOF
 kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
