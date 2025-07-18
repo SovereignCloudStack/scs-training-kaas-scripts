@@ -3,18 +3,23 @@ Some helpful snippets of code to automate the creation of Cluster-Stacks
 
 ## Goals
 Creating cluster stacks and cluster based on these takes a significant
-number of stacks that are hard to remember correctly for people that are
-not cluster-API and Cluster Class expert.
+number of steps that are hard to remember correctly for people that are
+not cluster-API and Cluster Class experts.
 
-We this hide them in a number of distinct steps that are in numbered scripts.
+We thus hide them in a number of distinct steps that are in numbered scripts.
 The reason for not doing everything in one script is that you do register
 cloud secrets or install capi much less often than install cluster classses
 which happens much less often than creating clusters.
 
+Please refer to the [Cluster Stacks SCS training docs](https://github.com/SovereignCloudStack/scs-training/tree/main/clusterstacks)
+and the [SCS docs CS quick start guide](https://docs.scs.community/docs/container/components/cluster-stacks/components/cluster-stacks/providers/openstack/quickstart)
+if you prefer to do things manually.
+
 ## Settings
 There is a [cluster-settings-template.env](cluster-settings-template.env) file
 that contains the parameters typically adjusted by users. Please create a
-copy, fill it in, and pass it to the scripts.
+copy, fill it in, and pass it to the scripts. The settings are documented
+by the comments, please study them.
 
 ## Scripts
 
@@ -24,27 +29,28 @@ any changes if you did not change any settings.
 ### Once per management host
 * `00-bootstrap-vm-cs.sh`: Install the needed software to be able to do
   cluster management on this host. (Developed for Debian 12.)
-  This is only needed if you do not have the needed tools preinstalled.
+  This is only needed if you do not have the needed tools (jq, yq, git,
+  openstackclient, docker, kind, kubectl, clusterctl, helm) preinstalled.
 * `01-kind-cluster.sh`: Create kind cluster
 * `02-deploy-capi.sh`: Install ORC and CAPI.
 * `03-deploy-cso.sh`: Install the Cluster Stack Operator.
 
-### Once per OpenStack Project in which we want to install clusters (NS)
+### Once per OpenStack Project in which we want to install clusters (per namespace)
 * `04-cloud-secret.sh`: Create namespace and secrets for CAPO and ORC to 
   work with the wanted OpenStack project.
 
 ### Once per Kubernetes aka CS version (maj.min)
 * `05-deploy-cstack.sh`: Create Cluster Stacks which are templates
   for various clusters with the same major minor version of k8s.
-  Should trigger cluster class creation and image registration.
+  Triggers cluster class creation and image registration.
 * `06-wait-clusterclass.sh`: Wait for the cluster class needed by your
   workload cluster.
 
 ### Once per cluster
 * `07-cluster-secret.sh`: Create cluster secrets.
   Optionally (by setting `CL_APPCRED_LIFETIME`) creating and rotating application
-  credentials that are individual per cluster. You need openstackclient tools
-  installed to make this wotk. Call this script regularly for AppCred rotation.
+  credentials (AppCreds) that are individual per cluster. You need openstackclient tools
+  installed to make this work. Call this script regularly for AppCred rotation.
 * `08-create-cluster.sh`: Create a workload cluster as per all the settings
   that are passed.
 * `09-wait-cluster.sh`: Wait for the workload cluster and extract KUBECONFIG.
@@ -58,26 +64,26 @@ driver which mounts the `cloud-config` secrets at `/etc/kubernetes`
 and not `/etc/config/` by default, so the `ca-file=` reference points
 to a non-existing file, see [ClusterStacks issue #188](https://github.com/SovereignCloudStack/cluster-stacks/issues/188).
 This results in a `CrashLoopBackup` state for
-the openstack-cinder-csi-* pods in the workload cluster. Until this
+the `openstack-cinder-csi-*` pods in the workload cluster. Until this
 is fixed up upstream, it can be patched using the `_10-old-fixup-cinder.sh`.
 The fix has been accepted upstream and will be in the cinder-csi-2.33 driver.
 Note that the workaround is also not required any longer for the new
-`clouds.yaml` configuration style.
+`clouds.yaml` configuration style of scs2 series cluster stacks.
 
 ### Testing and utilities
-* 20-install-gateway-api-crd.sh: Install gateway API CRDs.
+* `20-install-gateway-api-crd.sh`: Install gateway API CRDs.
   You will need to reinstall Cilium with the right settings to get
   Gateway API functionality from it though.
-* 21-deploy-kube-dashboard.sh: Deploys the kubernetes dashboard into
+* `21-deploy-kube-dashboard.sh`: Deploys the kubernetes dashboard into
   your workload cluster. It is exposed via a Loadbalancer.
   You need to use the generated token to authenticate.
 
 ### Cleanup
-* 50-remove-kube-dashboard.sh: Removes the kubernetes dashboard if deployed
+* `50-remove-kube-dashboard.sh`: Removes the kubernetes dashboard if deployed
   previously (11)
-* 56-cleanup-cluster.sh: Remove loadbalancers and persistent volumes from cluster.
-* 57-delete-cluster.sh: Remove cluster again.
-* 59-delete-kind.sh: Remove the kind cluster that we used as management cluster.
+* `56-cleanup-cluster.sh`: Remove loadbalancers and persistent volumes from cluster.
+* `57-delete-cluster.sh`: Remove cluster again.
+* `59-delete-kind.sh`: Remove the kind cluster that we used as management cluster.
 
 
 ### Moving management to a new cluster
