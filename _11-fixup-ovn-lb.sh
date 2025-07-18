@@ -33,7 +33,7 @@ NCCONF=$(LB=0; while read line; do
 		if test "${line:0:1}" = "[" -a $LB = 1; then LB=0; echo "$line"; continue; fi
 		if test "$line" = "[LoadBalancer]"; then LB=1; continue; fi
 		# If we got here, we are in the Loadbalancer section
-		if test -z "$line"; then echo -e "enabled = true\nlb-provider = ovn\nlb-method = SOURCE_IP_PORT\ncreate_monitor = true\n"; fi
+		if test -z "$line"; then echo -e "enabled = true\nlb-provider = ovn\nlb-method = SOURCE_IP_PORT\ncreate-monitor = true\n"; fi
 		# Don't output anything else here
 	done < <(echo "$CCONF" | base64 -d) | base64 -w0)
 NCONF_SECRET=$(while IFS="" read line; do
