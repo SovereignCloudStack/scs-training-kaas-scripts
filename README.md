@@ -2,18 +2,22 @@
 Some helpful snippets of code to automate the creation of Cluster-Stacks
 
 ## Goals
-Creating cluster stacks and cluster based on these takes a significant
+Creating cluster stacks and clusters based on these takes a significant
 number of steps that are hard to remember correctly for people that are
-not cluster-API and Cluster Class experts.
+not cluster-API (capi) and Cluster Class experts.
 
-We thus hide them in a number of distinct steps that are in numbered scripts.
+We thus hide them in numbered scripts that perform these steps.
 The reason for not doing everything in one script is that you do register
 cloud secrets or install capi much less often than install cluster classses
 which happens much less often than creating clusters.
 
 Please refer to the [Cluster Stacks SCS training docs](https://github.com/SovereignCloudStack/scs-training/tree/main/clusterstacks)
 and the [SCS docs CS quick start guide](https://docs.scs.community/docs/container/components/cluster-stacks/components/cluster-stacks/providers/openstack/quickstart)
-if you prefer to do things manually.
+if you prefer to do things manually. The scripts here are modeled after
+the manual steps (except that we don't use the helm helper chart any
+more for cluster secret creation and have separated the secrets creation
+for capo/orc (04) from the per-cluster one (07)) and are referenced
+in the training docs.
 
 ## Settings
 There is a [cluster-settings-template.env](cluster-settings-template.env) file
