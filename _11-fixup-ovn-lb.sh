@@ -25,7 +25,7 @@ source "$SET"
 # Do this on the workload cluster, ensure we have a config
 #clusterctl get kubeconfig -n $CS_NAMESPACE $CL_NAME > ~/.kube/$CS_NAMESPACE.$CL_NAME
 export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME
-CCONF_SECRET=$(kubectl get -n kube-system secrets ccm-cloud-config -o yaml)
+CCONF_SECRET="$(kubectl get -n kube-system secrets ccm-cloud-config -o yaml)"
 CCONF=$(echo "$CCONF_SECRET" | grep '^\s*cloud.conf:' | sed 's/^\s*cloud.conf: //')
 NCCONF=$(LB=0; while read line; do
 		if test $LB = 0; then echo "$line"; fi
@@ -36,12 +36,13 @@ NCCONF=$(LB=0; while read line; do
 		if test -z "$line"; then echo -e "enabled = true\nlb-provider = ovn\nlb-method = SOURCE_IP_PORT\ncreate_monitor = true\n"; fi
 		# Don't output anything else here
 	done < <(echo "$CCONF" | base64 -d) | base64 -w0)
-NCONF_SECRET=$(while read line; do
+NCONF_SECRET=$(while IFS="" read line; do
 		if echo "$line" | grep '^\s*cloud.conf' >/dev/null 2>&1; then
 			echo "$line" | sed "s/cloud.conf: .*\$/cloud.conf: $NCCONF/"
 		else
 			echo "$line"
 		fi
 	done < <(echo "$CCONF_SECRET"))
-echo "$NCONF_SECRET" | kubectl apply -f
+# echo echo "$NCONF_SECRET" "| kubectl apply -f -"
+echo "$NCONF_SECRET" | kubectl apply -f -
 kubectl rollout restart -n kube-system daemonset openstack-cloud-controller-manager
