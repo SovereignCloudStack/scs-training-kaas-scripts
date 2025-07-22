@@ -70,6 +70,11 @@ if test -n "$CL_VARIABLES"; then
 	done < <(echo "$CL_VARIABLES" | sed 's/;/\n/g')
 	# echo "$CL_VARS"
 fi
+# Set AZ (failureDomain) for workers (machine deployment 0)
+if test -n "$CL_WRKRAZ"; then
+	CL_WRKRFAILDOM="
+          failureDomain: $CL_WRKRAZ"
+fi
 #  We need to make them visible!
 cat > ~/tmp/cluster-$CL_NAME.yaml <<EOF
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -97,7 +102,7 @@ spec:
       machineDeployments:
         - class: default-worker
           name: md-0
-          replicas: $CL_WRKRNODES
+          replicas: $CL_WRKRNODES$CL_WRKRFAILDOM
 $CL_VARS
 EOF
 kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
