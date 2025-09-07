@@ -13,6 +13,7 @@ else
 fi
 # Read settings -- make sure you can trust it
 source "$SET"
+if test -z "$CS_SERIES"; then echo "Configure CS_SERIES, default to scs2"; CS_SERIES=scs2; fi
 # Read helper
 THISDIR=$(dirname 0)
 source "$THISDIR/_yaml_parse.sh"
@@ -37,6 +38,7 @@ else
 fi
 
 OLD_UMASK=$(umask)
+CL_NAME_B64=$(echo -n openstack | base64 -w0)
 
 # Deal with per-cluster secrets
 # A few cases:
