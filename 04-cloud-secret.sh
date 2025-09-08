@@ -13,7 +13,7 @@ fi
 # Read settings -- make sure you can trust it
 source "$SET"
 # Read helper
-THISDIR=$(dirname 0)
+THISDIR=$(dirname $0)
 source "$THISDIR/_yaml_parse.sh"
 
 # Create namespace
@@ -44,6 +44,7 @@ fi
 RAW_CLOUD=$(extract_yaml clouds.$OS_CLOUD <$CLOUDS_YAML)
 if ! echo "$RAW_CLOUD" | grep -q '^\s*project_id:' && echo "$RAW_CLOUD" | grep -q '^\s*project_name:'; then
 	# Need openstack CLI for this
+	echo "# Using openstack tools to determine project_id ..."
 	PROJECT_NAME=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\s*project_name: //')
 	PROJECT_ID=$(openstack project show $PROJECT_NAME -c id -f value | tr -d '\r')
 	INDENT=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\(\s*\)project_name:.*$/\1/')
@@ -53,6 +54,7 @@ fi
 # We need a region_name, add it in
 if ! echo "$RAW_CLOUD" | grep -q '^\s*region_name:'; then
 	# Need openstack CLI for this
+	echo "# Using openstack tools to determine region_name ..."
 	REGION=$(openstack region list -c Region -f value | head -n1 | tr -d '\r')
 	INDENT=$(echo "$RAW_CLOUD" | grep '^\s*auth:' | sed 's/^\(\s*\)auth:.*$/\1/')
 	export INSERT="${INDENT}region_name: $REGION"
