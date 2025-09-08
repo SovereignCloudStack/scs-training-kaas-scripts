@@ -79,7 +79,7 @@ The new way on configuring OCCM's credentials for the cloud consist
 of setting `use-clouds = true` in the `[Global]` swection of `cloud.conf`.
 The `cloud.conf` is auto-generated, and I have not yet found a way to
 tweak the process. The script `_11-fixup-ovn-lb.sh` does change the
-`ccm-cloud-confit` secret to enable the ovn LB provider and restarts
+`ccm-cloud-config` secret to enable the ovn LB provider and restarts
 the OCCM.
 
 ### Testing and utilities
