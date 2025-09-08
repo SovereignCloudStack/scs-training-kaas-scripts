@@ -2,7 +2,7 @@
 # (c) Kurt Garloff <s7n@garloff.de>, 5/2025
 # SPDX-License-Identifier: CC-BY-SA-4.0
 set -e
-THISDIR=$(dirname 0)
+THISDIR=$(dirname $0)
 # We need settings
 unset KUBECONFIG
 if test -n "$1"; then

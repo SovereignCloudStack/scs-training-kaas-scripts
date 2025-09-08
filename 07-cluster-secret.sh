@@ -15,7 +15,7 @@ fi
 source "$SET"
 if test -z "$CS_SERIES"; then echo "Configure CS_SERIES, default to scs2"; CS_SERIES=scs2; fi
 # Read helper
-THISDIR=$(dirname 0)
+THISDIR=$(dirname $0)
 source "$THISDIR/_yaml_parse.sh"
 
 # Create namespace
