@@ -14,6 +14,7 @@ source "$SET"
 # Sanity checks 
 if test -z "$CS_MAINVER"; then echo "Configure CS_MAINVER"; exit 2; fi
 if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
+if test -z "$CS_SERIES"; then echo "Configure CS_SERIES, default to scs2"; CS_SERIES=scs2; fi
 if test -z "$CL_PATCHVER"; then echo "Configure CL_PATCHVER"; exit 4; fi
 if test -z "$CL_NAME"; then echo "Configure CL_NAME"; exit 5; fi
 if test -z "$CL_PODCIDR"; then echo "Configure CL_PODCIDR"; exit 6; fi
@@ -27,7 +28,7 @@ if test "${CS_VERSION:0:1}" = "["; then
 	while read csnm k8sver; do
 		if test "$csnm" = "NAME"; then continue; fi
 		if test "$k8sver" = "v$CL_PATCHVER"; then
-			CS_VERSION="v${csnm#openstack-scs-?-??-v}"
+			CS_VERSION="v${csnm#openstack-${CS_SERIES}-?-??-v}"
 			CS_VERSION="${CS_VERSION//-/.}"
 			CS_VERSION="${CS_VERSION/./-}"
 			break
@@ -44,8 +45,12 @@ else
 fi
 # Distinguish between old (cloud.config) and new style (clouds.yaml) secrets
 # This depends on the clusterstackrelease, not on whether or not we have a newsecret
-#if kubectl get -n $CS_NAMESPACE clusterstackreleases.clusterstack.x-k8s.io openstack-scs-${CS_MAINVER/./-}-${CS_VERSION/./-} -o jsonpath='{.status.resources}' | grep openstack-scs-${CS_MAINVER/./-}-${CS_VERSION}-clouds-yaml >/dev/null 2>&1; then
-CFGSTYLE=$(kubectl get clusterclasses.cluster.x-k8s.io -n $CS_NAMESPACE openstack-scs-${CS_MAINVER/./-}-$CS_VERSION -o jsonpath='{.metadata.annotations.configStyle}' || true)
+#if kubectl get -n $CS_NAMESPACE clusterstackreleases.clusterstack.x-k8s.io openstack-${CS_SERIES}-${CS_MAINVER/./-}-${CS_VERSION/./-} -o jsonpath='{.status.resources}' | grep openstack-${CS_SERIES}-${CS_MAINVER/./-}-${CS_VERSION}-clouds-yaml >/dev/null 2>&1; then
+if test "$CS_SERIES" = "scs2"; then
+	CFGSTYLE="clouds-yaml"
+else
+	CFGSTYLE=$(kubectl get clusterclasses.cluster.x-k8s.io -n $CS_NAMESPACE openstack-${CS_SERIES}-${CS_MAINVER/./-}-$CS_VERSION -o jsonpath='{.metadata.annotations.configStyle}' || true)
+fi
 if test "$CFGSTYLE" = "clouds-yaml"; then
 	MGD_SEC="managed-secret: clouds-yaml$SECRETSUFFIX"
 else
@@ -89,7 +94,7 @@ spec:
       cidrBlocks:
       - "$CL_SVCCIDR"
   topology:
-    class: openstack-scs-${CS_MAINVER/./-}-$CS_VERSION
+    class: openstack-${CS_SERIES}-${CS_MAINVER/./-}-$CS_VERSION
     controlPlane:
       replicas: $CL_CTRLNODES
     version: v$CL_PATCHVER
