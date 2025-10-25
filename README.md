@@ -74,6 +74,14 @@ The fix has been accepted upstream and will be in the cinder-csi-2.33 driver.
 Note that the workaround is also not required any longer for the new
 `clouds.yaml` configuration style of scs2 series cluster stacks.
 
+### OVN loadbalancer fixup
+The new way on configuring OCCM's credentials for the cloud consist
+of setting `use-clouds = true` in the `[Global]` swection of `cloud.conf`.
+The `cloud.conf` is auto-generated, and I have not yet found a way to
+tweak the process. The script `_11-fixup-ovn-lb.sh` does change the
+`ccm-cloud-config` secret to enable the ovn LB provider and restarts
+the OCCM.
+
 ### Testing and utilities
 * `20-install-gateway-api-crd.sh`: Install gateway API CRDs.
   You will need to reinstall Cilium with the right settings to get

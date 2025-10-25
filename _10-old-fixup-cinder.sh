@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# 09-fixup-cinder.sh: Patch Cinder-CSI config path from /etc/kubernetes/
+# _10-fixup-cinder.sh: Patch Cinder-CSI config path from /etc/kubernetes/
 # de
 #  to /etc/config/, so the reference ca-file=/etc/config/cacert in the
 #  file cloud.conf points to an existing place again.
@@ -10,7 +10,7 @@
 # (c) Kurt Garloff <s7n@garloff.de>, 5/2025
 # SPDX-License-Identifier: CC-BY-SA-4.0
 set -e
-THISDIR=$(dirname 0)
+THISDIR=$(dirname $0)
 # We need settings
 #unset KUBECONFIG
 if test -n "$1"; then

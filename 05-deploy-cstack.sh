@@ -16,6 +16,7 @@ source "$SET"
 # Sanity checks 
 if test -z "$CS_MAINVER"; then echo "Configure CS_MAINVER"; exit 2; fi
 if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
+if test -z "$CS_SERIES"; then echo "Configure CS_SERIES, default to scs2"; CS_SERIES=scs2; fi
 # if test -z "$CL_PATCHVER"; then echo "Configure CL_PATCHVER"; exit 4; fi
 # Create ClusterStack yaml
 cat > ~/tmp/clusterstack-$CS_MAINVER.yaml <<EOF
@@ -26,7 +27,7 @@ metadata:
   namespace: "$CS_NAMESPACE"
 spec:
   provider: openstack
-  name: scs
+  name: "$CS_SERIES"
   kubernetesVersion: "$CS_MAINVER"
   channel: custom
   autoSubscribe: false

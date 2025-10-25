@@ -13,7 +13,7 @@ fi
 # Read settings -- make sure you can trust it
 source "$SET"
 # Read helper
-THISDIR=$(dirname 0)
+THISDIR=$(dirname $0)
 source "$THISDIR/_yaml_parse.sh"
 
 # Create namespace
