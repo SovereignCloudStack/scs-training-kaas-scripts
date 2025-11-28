@@ -11,6 +11,7 @@ else
 fi
 # Read settings -- make sure you can trust it
 source "$SET"
+unset KUBECONFIG
 # Sanity checks 
 if test -z "$CS_MAINVER"; then echo "Configure CS_MAINVER"; exit 2; fi
 if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
