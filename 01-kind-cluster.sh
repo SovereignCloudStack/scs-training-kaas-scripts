@@ -23,7 +23,7 @@ kubectl cluster-info
 KINDMTU=$(docker network inspect kind | jq -r '.[] | .Options."com.docker.network.driver.mtu"')
 if test $KINDMTU -gt $DOCKERMTU; then
 	echo -e "\e[0;31mWARNING: Found kind MTU $KINDMTU > docker0 $DOCKERMTU\e[0;0m"
-	ehoc "  Consider setting { \"mtu\": $((8*($CLOUDMTU/8))) } in /etc/docker/daemon.json"
+	echo "  Consider setting { \"mtu\": $((8*($CLOUDMTU/8))) } in /etc/docker/daemon.json"
 	echo "  and restart docker and do docker network rm kind ..."
 	echo "If you see ImagePullBackOff and ImagePullErrors, you now know why."
 fi
