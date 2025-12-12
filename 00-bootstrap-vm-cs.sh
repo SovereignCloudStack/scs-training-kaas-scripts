@@ -5,10 +5,21 @@
 # (c) Kurt Garloff <s7n@garloff.de>, 2/2025
 # SPDX-License-Identifier: CC-BY-SA-4.0
 
-# ToDo: Magic to switch b/w apt, zypper, dnf, pacman, ...
+# TODO: Magic to switch b/w apt, zypper, dnf, pacman, ...
+#
+#   *** This script currently supports only Debian GNU/Linux
+#
+
 ARCH=$(uname -m)
 ARCH="${ARCH/x86_64/amd64}"
 OS=$(uname -s | tr A-Z a-z)
+WHOAMI=$(whoami)
+
+# Releases of the components to install
+CAPI_RELEASE=1.11.3         # clusterctl
+HELM_RELEASE=4.0.0          # helm
+KIND_RELEASE=0.30.0         # kind
+KUBERNETES_RELEASE=1.33.4   # kubectl
 
 # Usage: install_via_pkgmgr pkgnm [pkgnm [...]]
 install_via_pkgmgr()
@@ -28,7 +39,7 @@ test_sha256()
 install_via_download_bin()
 {
 	cd ~/Download
-	curl -LO "$1" || return
+	curl -s -LO "$1" || return
 	FNM="${1##*/}"
 	if ! test_sha256 "$FNM" "$2"; then echo "Checksum mismatch for ${FNM}" 1>&2; return 1; fi
 	chmod +x "$FNM"
@@ -39,44 +50,74 @@ install_via_download_bin()
 install_via_download_tgz()
 {
 	cd ~/Download
-	curl -LO "$1" || return
+	curl -s -LO "$1" || return
 	FNM="${1##*/}"
 	if ! test_sha256 "$FNM" "$2"; then echo "Checksum mismatch for ${FNM}" 1>&2; return 1; fi
 	tar xvzf "$FNM"
 	sudo mv "$3" /usr/local/bin/"$4"
 }
 
-# Debian 12 (Bookworm)
-mkdir -p ~/Download
-INSTCMD="apt-get install -y --no-install-recommends --no-install-suggests"
-DEB12_PKGS=(docker.io golang jq yq git gh python3-openstackclient)
-DEB12_TGZS=("https://get.helm.sh/helm-v3.17.1-${OS}-${ARCH}.tar.gz")
-DEB12_TCHK=("3b66f3cd28409f29832b1b35b43d9922959a32d795003149707fea84cbcd4469")
-DEB12_TOLD=("${OS}-${ARCH}/helm")
-DEB12_TNEW=(".")
-DEB12_BINS=("https://github.com/kubernetes-sigs/kind/releases/download/v0.26.0/kind-${OS}-${ARCH}"
-	    "https://dl.k8s.io/release/v1.31.6/bin/${OS}/${ARCH}/kubectl"
-	    "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.9.4/clusterctl-${OS}-${ARCH}"
+# Create necessary directories hierarchy and touch the clouds credential file
+mkdir -p \
+    ~/.config/openstack \
+    ~/Download
+touch ~/.config/openstack/clouds.yaml
+
+# List of binaries (with their respective checksums) and packages for Debian
+INSTCMD="apt-get install -qq -y --no-install-recommends --no-install-suggests"
+DEBIAN_PKGS=(ca-certificates curl golang jq yq git gh python3-openstackclient)
+DEBIAN_TGZS=("https://get.helm.sh/helm-v${HELM_RELEASE}-${OS}-${ARCH}.tar.gz")
+DEBIAN_TCHK=("c77e9e7c1cc96e066bd240d190d1beed9a6b08060b2043ef0862c4f865eca08f")
+DEBIAN_TOLD=("${OS}-${ARCH}/helm")
+DEBIAN_TNEW=(".")
+DEBIAN_BINS=("https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_RELEASE}/kind-${OS}-${ARCH}"
+	"https://dl.k8s.io/release/v${KUBERNETES_RELEASE}/bin/${OS}/${ARCH}/kubectl"
+	"https://github.com/kubernetes-sigs/cluster-api/releases/download/v${CAPI_RELEASE}/clusterctl-${OS}-${ARCH}"
 	)
-DEB12_BCHK=("d445b44c28297bc23fd67e51cc24bb294ae7b977712be2d4d312883d0835829b"
-	    "c46b2f5b0027e919299d1eca073ebf13a4c5c0528dd854fc71a5b93396c9fa9d"
-	    "0c80a58f6158cd76075fcc9a5d860978720fa88860c2608bb00944f6af1e5752"
+DEBIAN_BCHK=("517ab7fc89ddeed5fa65abf71530d90648d9638ef0c4cde22c2c11f8097b8889"
+    "c2ba72c115d524b72aaee9aab8df8b876e1596889d2f3f27d68405262ce86ca1"
+    "d65ec7a42c36e863847103d48216c3dad248b82c447a27b3b2325a61e26ead9a"
     )
-DEB12_BNEW=("kind" "." "clusterctl")
+DEBIAN_BNEW=("kind" "." "clusterctl")
 
+# Ensure we are on a updated environment
 sudo apt-get update
-install_via_pkgmgr "${DEB12_PKGS[@]}" || exit 1
-for i in $(seq 0 $((${#DEB12_TGZS[*]}-1))); do
-	install_via_download_tgz "${DEB12_TGZS[$i]}" "${DEB12_TCHK[$i]}" "${DEB12_TOLD[$i]}" "${DEB12_TNEW[$i]}" || exit 2
+sudo apt-get upgrade -qq -y
+
+# Install required binaries and Debian packages for this KAAS setup
+install_via_pkgmgr "${DEBIAN_PKGS[@]}" || exit 1
+for i in $(seq 0 $((${#DEBIAN_TGZS[*]}-1))); do
+	install_via_download_tgz "${DEBIAN_TGZS[$i]}" "${DEBIAN_TCHK[$i]}" "${DEBIAN_TOLD[$i]}" "${DEBIAN_TNEW[$i]}" || exit 2
 done
-for i in $(seq 0 $((${#DEB12_BINS[*]}-1))); do
-	install_via_download_bin "${DEB12_BINS[$i]}" "${DEB12_BCHK[$i]}" "${DEB12_BNEW[$i]}" || exit 3
+for i in $(seq 0 $((${#DEBIAN_BINS[*]}-1))); do
+	install_via_download_bin "${DEBIAN_BINS[$i]}" "${DEBIAN_BCHK[$i]}" "${DEBIAN_BNEW[$i]}" || exit 3
 done
 
+# Install envsubs (using Go, as that's not available as Debian package)
 GOBIN=/tmp go install github.com/drone/envsubst/v2/cmd/envsubst@latest
 sudo mv /tmp/envsubst /usr/local/bin/
 
-test -e "~/.bash_aliases" || echo -e "alias ll='ls -lF'\nalias k=kubectl" > ~/.bash_aliases
-sudo groupmod -a -U `whoami` docker
-sudo systemctl enable --now docker
+# Add Docker's official GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
+# Add the repository to apt sources
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+# Update apt cache and install docker packages
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Check if we have ~/.bash_aliases to set
+test -e "~/.bash_aliases" || echo -e "alias ll='ls -lF'\nalias k=kubectl" > ~/.bash_aliases
+
+# Add current user to the Docker group
+sudo groupmod -a -U ${WHOAMI} docker
+sudo systemctl enable --now docker.service
