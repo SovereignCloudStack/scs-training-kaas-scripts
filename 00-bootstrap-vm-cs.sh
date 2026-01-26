@@ -49,18 +49,18 @@ install_via_download_tgz()
 # Debian 12 (Bookworm)
 mkdir -p ~/Download
 INSTCMD="apt-get install -y --no-install-recommends --no-install-suggests"
-DEB12_PKGS=(docker.io golang jq yq git gh python3-openstackclient)
-DEB12_TGZS=("https://get.helm.sh/helm-v3.17.1-${OS}-${ARCH}.tar.gz")
-DEB12_TCHK=("3b66f3cd28409f29832b1b35b43d9922959a32d795003149707fea84cbcd4469")
+DEB12_PKGS=(docker.io docker-cli golang jq yq git gh python3-openstackclient)
+DEB12_TGZS=("https://get.helm.sh/helm-v3.20.0-${OS}-${ARCH}.tar.gz")
+DEB12_TCHK=("dbb4c8fc8e19d159d1a63dda8db655f9ffa4aac1b9a6b188b34a40957119b286")
 DEB12_TOLD=("${OS}-${ARCH}/helm")
 DEB12_TNEW=(".")
-DEB12_BINS=("https://github.com/kubernetes-sigs/kind/releases/download/v0.26.0/kind-${OS}-${ARCH}"
-	    "https://dl.k8s.io/release/v1.31.6/bin/${OS}/${ARCH}/kubectl"
-	    "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.9.4/clusterctl-${OS}-${ARCH}"
+DEB12_BINS=("https://github.com/kubernetes-sigs/kind/releases/download/v0.31.0/kind-${OS}-${ARCH}"
+	    "https://dl.k8s.io/release/v1.35.0/bin/${OS}/${ARCH}/kubectl"
+	    "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.12.2/clusterctl-${OS}-${ARCH}"
 	)
-DEB12_BCHK=("d445b44c28297bc23fd67e51cc24bb294ae7b977712be2d4d312883d0835829b"
-	    "c46b2f5b0027e919299d1eca073ebf13a4c5c0528dd854fc71a5b93396c9fa9d"
-	    "0c80a58f6158cd76075fcc9a5d860978720fa88860c2608bb00944f6af1e5752"
+DEB12_BCHK=("eb244cbafcc157dff60cf68693c14c9a75c4e6e6fedaf9cd71c58117cb93e3fa"
+	    "a2e984a18a0c063279d692533031c1eff93a262afcc0afdc517375432d060989"
+	    "c9f05fb8a7839067bcfb2c897f4b7cab37b7c2780aef12669b5fd89a1dd6dffd"
     )
 DEB12_BNEW=("kind" "." "clusterctl")
 

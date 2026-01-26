@@ -26,6 +26,9 @@ fi
 # We need ORC these days and clusterctl has chosen to ignore that
 kubectl apply -f https://github.com/k-orc/openstack-resource-controller/releases/latest/download/install.yaml
 # Rollout capi and capo (assuming that orc gets deployed independently)
+# Note: For capi <= 1.11.x (v1beta1), we need to stay on old capo 0.12.7
+# clusterctl init --infrastructure openstack:v0.12.7
+# With latest capi (1.12.2), 0.14+ works.
 clusterctl init --infrastructure openstack
 # Wait for completion
 kubectl -n capi-system rollout status deployment
