@@ -24,6 +24,13 @@ while true; do
 	sleep 30
 	SB=$(sonobuoy status)
 done
+# Allow for results collection
+while true; do
+	#echo "$SB"
+	if ! echo "$SB" | grep "Preparing results" >/dev/null; then break; fi
+	sleep 10
+	SB=$(sonobuoy status)
+done
 sonobuoy retrieve
 RES=$(ls -t 20*sonobuoy*.tar.gz | head -n1)
 sonobuoy results $RES
