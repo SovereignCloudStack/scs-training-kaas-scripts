@@ -232,6 +232,7 @@ $VAL"
 extract_yaml_rec()
 {
 	#echo "DEBUG: Called extract_yaml_rec $@" 1>&2
+	yaml_debug 3 "extract_yaml_rec \"$1\" \"$2\" \"$3\" \"$4\" \"$5\" \"$6\" [...]"
 	local previndent="$1"
 	local more="$2"
 	#global LNNO _MORE
@@ -244,10 +245,10 @@ extract_yaml_rec()
 		if islineempty "$line"; then continue; fi
 		# First line of new block: We need more indentation ...
 		if test "$more" = "1"; then
-		       if ! echo "$line" | grep -q "^$previndent\s"; then return; fi
-		       more=$(echo "$line" | sed "s/^$previndent\\(\s*\\)[^\s].*\$/\\1/")
+		       if ! echo "$line" | grep -q "^$previndent\\s"; then return; fi
+		       more=$(echo "$line" | sed "s/^$previndent\\(\\s*\\)\\S.*\$/\\1/")
 		       if test -z "$_MORE"; then _MORE="$more"; fi
-		       #echo "$previndent$more# $LNNO: New indent level"
+		       yaml_debug 4 "New indent level (line $LNNO): \"$previndent$more\""
 		fi
 		# Detect less indentation than wanted, return
 		#if ! echo "$line" | grep -q "^$previndent$more"; then return; fi
