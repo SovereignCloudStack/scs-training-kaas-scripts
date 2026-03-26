@@ -12,7 +12,7 @@ else
 fi
 # Read settings -- make sure you can trust it
 source "$SET"
-kubectl get cluster -A
+#kubectl get cluster -A
 KCFG=~/.kube/$CS_NAMESPACE.$CL_NAME
 export KUBECONFIG=$KCFG
 echo "Removing sonobuoy namespace from cluster -n $CS_NAMESPACE $CL_NAME"
