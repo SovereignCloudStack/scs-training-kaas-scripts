@@ -110,7 +110,6 @@ declare -i NO=0
 OLDIFS="$IFS"
 IFS=","
 for wrkr in $CL_WRKRNODES; do
-	#echo "$wrkr"
 	cat >> ~/tmp/cluster-$CL_NAME.yaml <<EOF2
         - class: default-worker
           name: md-$NO
@@ -123,4 +122,4 @@ EOF2
 done
 IFS="$OLDIFS"
 echo "$CL_VARS" >> ~/tmp/cluster-$CL_NAME.yaml
-#kubectl apply -f ~/t:wmp/cluster-$CL_NAME.yaml
+kubectl apply -f ~/t:wmp/cluster-$CL_NAME.yaml
