@@ -105,9 +105,22 @@ spec:
     version: v$CL_PATCHVER
     workers:
       machineDeployments:
-        - class: default-worker
-          name: md-0
-          replicas: $CL_WRKRNODES
-$CL_VARS
 EOF
-kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
+declare -i NO=0
+OLDIFS="$IFS"
+IFS=","
+for wrkr in $CL_WRKRNODES; do
+	echo "$wrkr"
+	cat >> ~/tmp/cluster-$CL_NAME.yaml <<EOF2
+        - class: default-worker
+          name: md-$NO
+          replicas: ${wrkr##*:}
+EOF2
+	if test "${wrkr##*:}" != "$wrkr"; then
+		echo "          failureDomain: ${wrkr%:*}" >> ~/tmp/cluster-$CL_NAME.yaml
+	fi
+	let NO+=1
+done
+IFS="$OLDIFS"
+echo "$CL_VARS" >> ~/tmp/cluster-$CL_NAME.yaml
+#kubectl apply -f ~/t:wmp/cluster-$CL_NAME.yaml
