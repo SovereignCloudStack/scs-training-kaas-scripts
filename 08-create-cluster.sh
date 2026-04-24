@@ -110,7 +110,7 @@ declare -i NO=0
 OLDIFS="$IFS"
 IFS=","
 for wrkr in $CL_WRKRNODES; do
-	echo "$wrkr"
+	#echo "$wrkr"
 	cat >> ~/tmp/cluster-$CL_NAME.yaml <<EOF2
         - class: default-worker
           name: md-$NO
