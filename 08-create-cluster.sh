@@ -122,4 +122,4 @@ EOF2
 done
 IFS="$OLDIFS"
 echo "$CL_VARS" >> ~/tmp/cluster-$CL_NAME.yaml
-kubectl apply -f ~/t:wmp/cluster-$CL_NAME.yaml
+kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
