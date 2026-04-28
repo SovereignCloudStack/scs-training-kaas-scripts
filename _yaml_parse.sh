@@ -220,6 +220,7 @@ $VAL"
 #
 # Environment to pass special functions
 # $RMVTREE nonempty: Do not output yaml path leading to this section
+#   If $RMVTREE is set to all: Also remove the last tag
 # $REPLACEKEY nonempty: Replace last part of the search value by $REPLACEKEY
 # $INSERT and $APPEND is text injected in the outputted block (at beginning and end resp.)
 # $INJECTSUB and $INJECTSUBKWD: inject text $INJECTSUB after the subsection $INJECTSUBKWD has been found
@@ -296,7 +297,11 @@ extract_yaml_rec()
 			else
 				# At the leaf, we may hold a value
 				if test -z "$2"; then
-					echo "$line" | grep --color=never "^$previndent$more$1: [^\\s]"
+					if test "$RMVTREE" != "all"; then
+						echo "$line" | grep --color=never "^$previndent$more$1: [^[:space:]]"
+					else
+						echo "$line" | grep --color=never "^$previndent$more$1: [^[:space:]]" | sed "s@^$previndent$more$1: @@"
+					fi
 					parse_line "$line"
 				fi
 			fi
