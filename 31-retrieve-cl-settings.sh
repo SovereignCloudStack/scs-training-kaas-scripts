@@ -23,7 +23,7 @@ rmv_list()
 	shift
 	RMV="${RMV/-/\-}"
 	RMV="${RMV/./\.}"
-	echo "$@" | grep -v "^$RMV\$"
+	echo "$1" | grep -v "^$RMV\$"
 }
 
 output_cs()
@@ -152,9 +152,11 @@ retrieve_cluster()
 
 
 # Find latest clusterstack
-CSTACKS=$(kubectl get -n $CS_NAMESPACE clusterStack | awk '{print $1;}' | grep -v '^NAME' | sort)
+CSTACKS="$(kubectl get -n $CS_NAMESPACE clusterStack | awk '{print $1;}' | grep -v '^NAME' | sort)"
 if test -z "$CSTACKS"; then echo "No clusterStack found"; exit 2; fi
+#echo "ClusterStacks: $CSTACKS"
 CLUSTERS=$(kubectl get -n $CS_NAMESPACE clusters | awk '{print $1;}' | grep -v '^NAME' | sort)
+#echo "Clusters: $CLUSTERS"
 for cluster in $CLUSTERS; do retrieve_cluster "$cluster"; done
 # Also dump clusterStacks that are not in use
 for CSTACK in $CSTACKS; do
