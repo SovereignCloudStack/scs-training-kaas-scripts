@@ -26,7 +26,7 @@ rmv_list()
 	echo "$@" | grep -v "^$RMV\$"
 }
 
-output()
+output_cs()
 {
 	echo "# ClusterStack settings"
 	echo "CS_NAMESPACE=$CS_NAMESPACE"
@@ -35,6 +35,11 @@ output()
 	echo "CS_MAINVER=$CS_MAINVER"
 	echo "CS_VERSION=\"$CS_VERSION\""
 	echo "CS_SERIES=$CS_SERIES"
+}
+
+output()
+{
+	output_cs
 	echo "# Cluster settings"
 	echo "CL_NAME=\"$CL_NAME\""
 	echo "CL_PATCHVER=$CL_PATCHVER"
@@ -71,13 +76,13 @@ retrieve_cstack()
 		echo "Inconsistent k8s main version \"$CS_MAINVER\" vs \"$CS_MAINVER_\""
 		return 4
 	fi
+	# FIXME: Do we need to handle non-arrays here?
 	CS_VERSION="[${CS_VERSION/ /,}]"
 	#echo "\"$CS_NAMESPACE\" \"$CS_SERIES\" \"$CS_MAINVER\" \"$CS_VERSION\""
-	# TODO: retrieve_clouds_yaml
 }
 
-# Look at Cluster object $1, return CL_NAME, CL_PODCIDR, CL_SVCCIDR
-# S_SERIES, CS_MAINVER, CS_VERSION
+# Look at Cluster object $1, return CL_NAME, CL_PODCIDR, CL_SVCCIDR, ....
+# Get CS_SERIES, CS_MAINVER, CS_VERSION via retrieve_cstack
 retrieve_cluster()
 {
 	CL_NAME="$1"
@@ -117,16 +122,19 @@ retrieve_cluster()
 	for VARIDX in $(seq 0 $((NOVARS-1))); do
 		unset item__value
 		VPRE=item__ YAMLASSIGN=1 extract_yaml . < <(echo "${spec__topology__variables[$VARIDX]}") >/dev/null
-		if is_array "$item__value"; then
+		if is_array item__value; then
 			val=${item__value[*]}
-			CL_VARIABLES="$CL_VARIABLES$item__name=[${val// /,}];"
-		elif test -n "$item__value"; then
-			# TODO: Check for defaults and filter out
-			CL_VARIABLES="$CL_VARIABLES$item__name=$item__value;"
+			val="[${val// /,}]"
+		else
+			val="$item__value"
 		fi
+		# TODO: Check for defaults instead and filter out
+		if test -z "$val" -o "$val" = "[]"; then continue; fi
+		CL_VARIABLES="$CL_VARIABLES$item__name=$val;"
 	done
 	CL_VARIABLES="${CL_VARIABLES%;}"
-	output
+	echo "Saving settings to cluster-settings-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}-$CL_NAME.env"
+	output > cluster-settings-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}-$CL_NAME.env
 }
 
 
@@ -135,3 +143,9 @@ CSTACKS=$(kubectl get -n $CS_NAMESPACE clusterStack | awk '{print $1;}' | grep -
 if test -z "$CSTACKS"; then echo "No clusterStack found"; exit 2; fi
 CLUSTERS=$(kubectl get -n $CS_NAMESPACE clusters | awk '{print $1;}' | grep -v '^NAME' | sort)
 for cluster in $CLUSTERS; do retrieve_cluster "$cluster"; done
+# Also dump clusterStacks that are not in use
+for CSTACK in $CSTACKS; do
+	retrieve_cstack "$CSTACK"
+	echo "Saving ClusterStack $CSTACK to cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env"
+	output_cs > cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env
+done
