@@ -26,6 +26,26 @@ rmv_list()
 	echo "$@" | grep -v "^$RMV\$"
 }
 
+output()
+{
+	echo "# ClusterStack settings"
+	echo "CS_NAMESPACE=$CS_NAMESPACE"
+	# echo CLOUDS_YAML
+	# echo OS_CLOUD
+	echo "CS_MAINVER=$CS_MAINVER"
+	echo "CS_VERSION=\"$CS_VERSION\""
+	echo "CS_SERIES=$CS_SERIES"
+	echo "# Cluster settings"
+	echo "CL_NAME=\"$CL_NAME\""
+	echo "CL_PATCHVER=$CL_PATCHVER"
+	echo "CL_PODCIDR=$CL_PODCIDR"
+	echo "CL_SVCCIDR=$CL_SVCCIDR"
+	echo "CL_CTRLNODES=$CL_CTRLNODES"
+	echo "CL_WRKRNODES=$CL_WRKRNODES"
+	echo "CL_VARIABLES=\"$CL_VARIABLES\""
+	echo "# END #"
+}
+
 retrieve_clouds_yaml()
 {
 	# TODO
@@ -38,11 +58,11 @@ retrieve_cstack()
 	CS_MAINVER="${1#openstack-}"
 	CS_MAINVER="${CS_MAINVER#scs*-}"
 	CS_MAINVER_="${CS_MAINVER/-/.}"
-	STACK=$(kubectl get -n $CS_NAMESPACE clusterStack $1 -o yaml) || return 2
-	YAMLASSIGN=1 extract_yaml spec < <(echo "$STACK") >/dev/null
-	CS_SERIES=$spec__name
-	CS_MAINVER=$spec__kubernetesVersion
-	CS_VERSION="${spec__versions[*]}"
+	STACK=$(kubectl get -n $CS_NAMESPACE clusterStack $1 -o yaml 2>/dev/null) || return 2
+	VPRE=cs__ YAMLASSIGN=1 extract_yaml spec < <(echo "$STACK") >/dev/null
+	CS_SERIES=$cs__spec__name
+	CS_MAINVER=$cs__spec__kubernetesVersion
+	CS_VERSION="${cs__spec__versions[*]}"
 	if test -z "$CS_SERIES" -o -z "$CS_MAINVER" -o -z "$CS_VERSION"; then
 		echo "Some settings missing for $1 \"$CS_SERIES\" \"$CS_MAINVER\" \"$CS_VERSION\""
 		return 3
@@ -78,8 +98,35 @@ retrieve_cluster()
 	fi
 	# Eliminate $SCLASS from CSTACKS list
 	CSTACKS="$(rmv_list $SCLASS $CSTACKS)"
-	# TODO: CL_WORKERS
-	# TODO: CL_VARIABLES
+	# CL_WORKERS
+	unset CL_WRKRNODES
+	NOMDS=${#spec__topology__workers__machineDeployments[*]}
+	for MDIDX in $(seq 0 $((NOMDS-1))); do
+		unset item__failureDomain
+		VPRE=item__ YAMLASSIGN=1 extract_yaml . < <(echo "${spec__topology__workers__machineDeployments[$MDIDX]}") >/dev/null
+		if test -n "$item__failureDomain"; then
+			CL_WRKRNODES="$CL_WRKRNODES${item__failureDomain}:${item__replicas},"
+		else
+			CL_WRKRNODES="$CL_WRKRNODES${item__replicas},"
+		fi
+	done
+	CL_WRKRNODES="${CL_WRKRNODES%,}"
+	# CL_VARIABLES
+	unset CL_VARIABLES
+	NOVARS=${#spec__topology__variables[*]}
+	for VARIDX in $(seq 0 $((NOVARS-1))); do
+		unset item__value
+		VPRE=item__ YAMLASSIGN=1 extract_yaml . < <(echo "${spec__topology__variables[$VARIDX]}") >/dev/null
+		if is_array "$item__value"; then
+			val=${item__value[*]}
+			CL_VARIABLES="$CL_VARIABLES$item__name=[${val// /,}];"
+		elif test -n "$item__value"; then
+			# TODO: Check for defaults and filter out
+			CL_VARIABLES="$CL_VARIABLES$item__name=$item__value;"
+		fi
+	done
+	CL_VARIABLES="${CL_VARIABLES%;}"
+	output
 }
 
 
