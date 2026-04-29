@@ -30,8 +30,8 @@ output_cs()
 {
 	echo "# ClusterStack settings"
 	echo "CS_NAMESPACE=$CS_NAMESPACE"
-	# echo CLOUDS_YAML
-	# echo OS_CLOUD
+	echo "CLOUDS_YAML=$CS_NAMESPACE-clouds.yaml"
+	echo "OS_CLOUD=$CS_NAMESPACE"
 	echo "CS_MAINVER=$CS_MAINVER"
 	echo "CS_VERSION=\"$CS_VERSION\""
 	echo "CS_SERIES=$CS_SERIES"
@@ -48,13 +48,25 @@ output()
 	echo "CL_CTRLNODES=$CL_CTRLNODES"
 	echo "CL_WRKRNODES=$CL_WRKRNODES"
 	echo "CL_VARIABLES=\"$CL_VARIABLES\""
-	echo "# END #"
+}
+
+output_clouds()
+{
+	echo "$CLOUDSYAML"
+}
+
+output_cacert()
+{
+	echo "$CSCACERT"
 }
 
 retrieve_clouds_yaml()
 {
-	# TODO
-	echo "not yet implemented"
+	unset data__cacert
+	YAMLASSIGN=1 extract_yaml data < <(kubectl get -n $CS_NAMESPACE secret openstack -o yaml) >/dev/null
+	CLOUDNAME="$(echo $data__cloudName | base64 -d)"
+	CLOUDSYAML=$(echo $data__clouds_yaml | base64 -d | sed "s/  $CLOUDNAME:/  $CS_NAMESPACE:/" | sed "s/cacert:.*\$/cacert: $CS_NAMESPACE.crt/")
+	CSCACERT="$(echo $data__cacert | base64 -d)"
 }
 
 # Look at Cluster Stack object $1, return CS_SERIES, CS_MAINVER, CS_VERSION
@@ -79,6 +91,7 @@ retrieve_cstack()
 	# FIXME: Do we need to handle non-arrays here?
 	CS_VERSION="[${CS_VERSION/ /,}]"
 	#echo "\"$CS_NAMESPACE\" \"$CS_SERIES\" \"$CS_MAINVER\" \"$CS_VERSION\""
+	retrieve_clouds_yaml
 }
 
 # Look at Cluster object $1, return CL_NAME, CL_PODCIDR, CL_SVCCIDR, ....
@@ -149,3 +162,9 @@ for CSTACK in $CSTACKS; do
 	echo "Saving ClusterStack $CSTACK to cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env"
 	output_cs > cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env
 done
+echo "Saving $CS_NAMESPACE-clouds.yaml"
+output_clouds > $CS_NAMESPACE-clouds.yaml
+if test -n "$CSCACERT"; then
+	echo "Saving $CS_NAMESPACE.crt"
+	output_cacert > $CS_NAMESPACE.crt
+fi
