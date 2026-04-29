@@ -91,14 +91,14 @@ fill_value()
 		# Dicts
 		if test "${VAL:0:1}" = "{"; then
 			 while IFS=": " read k p; do
-				 eval ${_VARNM}__$k="$p"
+				 eval $VPRE${_VARNM}__$k="$p"
 				 yaml_debug 1 "dict ${_VARNM}__$k=\"$p\""
 			 done < <(echo "$VAL" | sed -e 's/{//' -e 's/}//' -e 's/,/\n/g')
 		# Arrays
 		elif test "${VAL:0:1}" = "["; then
 			# FIXME: [ { , }, { , } ] won't be handled correctly
 			# Ideas: sed 's/\({[^}]*}\)/\1/' extracts these, temporarily replace , with :: or so
-			eval $_VARNM="("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")"
+			eval $VPRE$_VARNM="("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")"
 			yaml_debug 1 "arr ${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))"
 		# Multiline
 		elif test "${VAL:0:1}" = "|"; then
@@ -112,7 +112,7 @@ fill_value()
 				exit 1
 			else
 				yaml_debug 1 "assign $_VARNM=\"$VAL\""
-				eval $_VARNM="$VAL"
+				eval $VPRE$_VARNM="$VAL"
 			fi
 		fi
 	fi
@@ -124,11 +124,11 @@ finalize_var()
 	if test -z "$YAMLASSIGN"; then return; fi
 	if test -n "$_in_multiline"; then
 		yaml_debug 1 "multiline $_VARNM=\"$_in_multiline\""
-		eval $_VARNM="\"$_in_multiline\""
+		eval $VPRE$_VARNM="\"$_in_multiline\""
 		_in_multiline=""
 	elif test -n "$_in_array"; then
 		yaml_debug 1 "array $_VARNM=($_in_array\")"
-		eval $_VARNM="($_in_array\")"
+		eval $VPRE$_VARNM="($_in_array\")"
 		_in_array=""
 		if test -n "$_over"; then
 			unset _over
@@ -228,6 +228,7 @@ $VAL"
 # $RMVCOMMENT nonempty: Strip comments
 # $YAMLASSIGN fills shell variables with the parsed yaml
 # 	where a variable a-b.c.d_e.f will look like a_b__c__d_e__f
+# 	If you set $VPRE, variable names will be prefixed with $VPRE
 #
 # Return value: 0 if we found (and output) a block, 1 otherwise
 extract_yaml_rec()
