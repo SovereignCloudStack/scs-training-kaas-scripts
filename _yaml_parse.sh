@@ -83,6 +83,8 @@ fill_value()
 	else
 		_VARNM="$NM"
 	fi
+	_VARNM="${_VARNM//./_}"
+	_VARNM="${_VARNM//\//__}"
 	# Do we have a direct value
 	if test "${EXP%%:*}" != "${EXP%:}"; then
 		VAL="${EXP#*:}"
@@ -122,6 +124,8 @@ fill_value()
 finalize_var()
 {
 	if test -z "$YAMLASSIGN"; then return; fi
+	_VARNM="${_VARNM//./_}"
+	_VARNM="${_VARNM//\//__}"
 	if test -n "$_in_multiline"; then
 		yaml_debug 1 "multiline $_VARNM=\"$_in_multiline\""
 		eval $VPRE$_VARNM="\"$_in_multiline\""
@@ -169,6 +173,7 @@ parse_line()
 		VAL="${1#$_prevstart$_MORE}"
 		if test -n "$_in_multiline"; then
 			if test "$_in_multiline" = "#MARKER"; then
+				#_in_multiline="${VAL//\`/\'}"`
 				_in_multiline="$VAL"
 			else
 				_in_multiline="$_in_multiline
