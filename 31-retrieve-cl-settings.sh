@@ -94,6 +94,25 @@ retrieve_cstack()
 	retrieve_clouds_yaml
 }
 
+# Retrieve cluster class defaults
+# $1: Cluster Class
+# Returns var__$NAME__default=$DEFAULT
+retrieve_cclass_defaults()
+{
+	#echo "VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml | sed \"s@\\\`@\'@g\")"
+	VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml | sed "s@\`@\'@g") >/dev/null
+	#_yaml_debuglevel=4 VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml) # | sed "s@\`@\'@g") >/dev/null
+	if ! is_array ccls__spec__variables; then echo "Error: No CClass variables for $CS_NAMESPACE/$1 ($ccls__name)"; return 1; fi
+	NOVAR=${#ccls__spec__variables[*]}
+	for varidx in $(seq 0 $((NOVAR-1))); do
+		NAME=$(echo "${ccls__spec__variables[$varidx]}" | RMVTREE=all extract_yaml name)
+		DEFAULT=$(echo "${ccls__spec__variables[$varidx]}" | RMVTREE=all extract_yaml schema.openAPIV3Schema.default)
+		if test -z "$DEFAULT"; then continue; fi
+		#echo "$varidx: var__${NAME}__default=\"$DEFAULT\""
+		eval var__${NAME}__default="\"$DEFAULT\""
+	done
+}
+
 # Look at Cluster object $1, return CL_NAME, CL_PODCIDR, CL_SVCCIDR, ....
 # Get CS_SERIES, CS_MAINVER, CS_VERSION via retrieve_cstack
 retrieve_cluster()
@@ -130,6 +149,7 @@ retrieve_cluster()
 	done
 	CL_WRKRNODES="${CL_WRKRNODES%,}"
 	# CL_VARIABLES
+	retrieve_cclass_defaults "$CCLASS"
 	unset CL_VARIABLES
 	NOVARS=${#spec__topology__variables[*]}
 	for VARIDX in $(seq 0 $((NOVARS-1))); do
@@ -142,7 +162,11 @@ retrieve_cluster()
 			val="$item__value"
 		fi
 		# TODO: Check for defaults instead and filter out
-		if test -z "$val" -o "$val" = "[]"; then continue; fi
+		#if test -z "$val" -o "$val" = "[]"; then continue; fi
+		defnm="var__${item__name}__default"
+		eval def="\${$defnm}"
+		#echo "default for $item__name ($defnm): $def, value $val" 1>&2
+		if test "$val" == "$def" || test "$val" == "" -a "$def" == "{}" || test "$val" == "()" -a "$def" == "[]"; then continue; fi
 		CL_VARIABLES="$CL_VARIABLES$item__name=$val;"
 	done
 	CL_VARIABLES="${CL_VARIABLES%;}"
