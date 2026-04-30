@@ -23,7 +23,7 @@ cat > ~/tmp/clusterstack-$CS_MAINVER.yaml <<EOF
 apiVersion: clusterstack.x-k8s.io/v1alpha1
 kind: ClusterStack
 metadata:
-  name: openstack-${CS_MAINVER/./-}
+  name: openstack-${CS_SERIES}-${CS_MAINVER/./-}
   namespace: "$CS_NAMESPACE"
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"

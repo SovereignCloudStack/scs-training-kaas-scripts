@@ -64,11 +64,20 @@ yaml_debug()
 # tag1[0]="{tag2:val,tag3:val}", tag1[1]="{tag2:val4,tag3:val5}"
 # For multiline arrays, basically do a multiline string handling
 
-_VARNM=""
-_prevstart=""
-_MORE=""
-_in_multiline=""
-_in_array=""
+reset_vars()
+{
+	_prevstart=""
+	_in_multiline=""
+	_in_array=""
+	unset _over
+	_VARNM=""
+	unset PREVASSIGN
+	unset _in_arr
+	unset _new_arr
+	_MORE=""
+}
+
+reset_vars
 
 fill_value()
 {
@@ -85,6 +94,7 @@ fill_value()
 	fi
 	_VARNM="${_VARNM//./_}"
 	_VARNM="${_VARNM//\//__}"
+	unset PREVASSIGN
 	# Do we have a direct value
 	if test "${EXP%%:*}" != "${EXP%:}"; then
 		VAL="${EXP#*:}"
@@ -93,15 +103,15 @@ fill_value()
 		# Dicts
 		if test "${VAL:0:1}" = "{"; then
 			 while IFS=": " read k p; do
-				 eval $VPRE${_VARNM}__$k="$p"
-				 yaml_debug 1 "dict ${_VARNM}__$k=\"$p\""
+				 yaml_debug 1 "dict $VPRE${_VARNM}__$k=\"$p\""
+				 eval $VPRE${_VARNM}__$k=\"$p\"
 			 done < <(echo "$VAL" | sed -e 's/{//' -e 's/}//' -e 's/,/\n/g')
 		# Arrays
 		elif test "${VAL:0:1}" = "["; then
 			# FIXME: [ { , }, { , } ] won't be handled correctly
 			# Ideas: sed 's/\({[^}]*}\)/\1/' extracts these, temporarily replace , with :: or so
-			eval $VPRE$_VARNM="("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")"
-			yaml_debug 1 "arr ${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))"
+			yaml_debug 1 "arr $VPRE${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))"
+			eval $VPRE$_VARNM="\"("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")\""
 		# Multiline
 		elif test "${VAL:0:1}" = "|"; then
 			_in_multiline="#MARKER"
@@ -113,8 +123,9 @@ fill_value()
 				echo "#ERROR: multiline or array not expected $_VARNM" 1>&2
 				exit 1
 			else
-				yaml_debug 1 "assign $_VARNM=\"$VAL\""
-				eval $VPRE$_VARNM="$VAL"
+				yaml_debug 1 "assign $VPRE$_VARNM=\"$VAL\""
+				eval $VPRE$_VARNM=\"$VAL\"
+				PREVASSIGN="$VAL"
 			fi
 		fi
 	fi
@@ -127,11 +138,11 @@ finalize_var()
 	_VARNM="${_VARNM//./_}"
 	_VARNM="${_VARNM//\//__}"
 	if test -n "$_in_multiline"; then
-		yaml_debug 1 "multiline $_VARNM=\"$_in_multiline\""
-		eval $VPRE$_VARNM="\"$_in_multiline\""
+		yaml_debug 1 "multiline $VPRE$_VARNM=\"$_in_multiline\""
+		eval $VPRE$_VARNM="\"${_in_multiline//\`/\\\`}\""
 		_in_multiline=""
 	elif test -n "$_in_array"; then
-		yaml_debug 1 "array $_VARNM=($_in_array\")"
+		yaml_debug 1 "array $VPRE$_VARNM=($_in_array\")"
 		eval $VPRE$_VARNM="($_in_array\")"
 		_in_array=""
 		if test -n "$_over"; then
@@ -171,9 +182,9 @@ parse_line()
 	# Case (a)
 	if startswith "$_prevstart$_MORE" "$1"; then
 		VAL="${1#$_prevstart$_MORE}"
+		#yaml_debug 4 "More indentation"
 		if test -n "$_in_multiline"; then
 			if test "$_in_multiline" = "#MARKER"; then
-				#_in_multiline="${VAL//\`/\'}"`
 				_in_multiline="$VAL"
 			else
 				_in_multiline="$_in_multiline
@@ -192,6 +203,12 @@ $VAL"
 				_in_array="\"${VAL#- }"	# Open \" is intentional
 				yaml_debug 2 "Found overindented array start ${1#$_prevstart$_MORE- }"
 				_over=1
+			# detect line-wrapped continuation
+			elif test -n "$PREVASSIGN"; then
+				yaml_debug 3 "Unexpected line continuation found -> multiline"
+				_in_multiline="$PREVASSIGN
+$VAL"
+				unset PREVASSIGN
 			# A new dict field in the array
 			else
 				_prevstart="$_prevstart$_MORE"
@@ -214,6 +231,7 @@ $VAL"
 			yaml_debug 2 "Found array start ${VAL#- }"
 		fi
 	fi
+	#unset PREVASSIGN
 }
 
 # Helper: Parse YAML (recursive)
@@ -252,14 +270,19 @@ extract_yaml_rec()
 		if islineempty "$line"; then continue; fi
 		# First line of new block: We need more indentation ...
 		if test "$more" = "1"; then
-		       if ! echo "$line" | grep -q "^$previndent\\s"; then return; fi
-		       more=$(echo "$line" | sed "s/^$previndent\\(\\s*\\)\\S.*\$/\\1/")
-		       if test -z "$_MORE"; then _MORE="$more"; fi
-		       yaml_debug 4 "New indent level (line $LNNO): \"$previndent$more\""
+			if ! echo "$line" | grep -q "^$previndent\\(\\s\\|\\-\\)"; then return; fi
+			more=$(echo "$line" | sed "s/^$previndent\\(\\s\\s*\\|\\- *\\)\\S.*\$/\\1/")
+			if test "${more:0:1}" = "-"; then _new_arr=arr; else unset _in_arr; fi
+			if test -z "$_MORE"; then _MORE="$more"; fi
+			yaml_debug 4 "New indent level (line $LNNO): \"$previndent$more\" ($_new_arr)"
 		fi
 		# Detect less indentation than wanted, return
 		#if ! echo "$line" | grep -q "^$previndent$more"; then return; fi
-		if ! startswith "$previndent$more" "$line"; then return; fi
+		if ! startswith "$previndent$more" "$line"; then
+			if test -z "$1" -a -n "$_in_arr"; then echo "]"; unset _in_arr; fi
+			yaml_debug 4 "end of block"
+			return
+		fi
 		# Strip comments if requested
 		#if test -n "$RMVCOMMENT" && echo "$line" | grep -q '^\s*#'; then continue; fi
 		if test -n "$RMVCOMMENT" && islinecomment "$line"; then continue; fi
@@ -276,7 +299,19 @@ extract_yaml_rec()
 			#echo "$previndent$more# $LNNO: Outputing block"
 			#if test -z "$REMOVE" || ! echo "$line" | grep -q "^$previndent$more$REMOVE:"; then
 			if test -z "$REMOVE" || ! startswith "$previndent$more$REMOVE:" "$line"; then
-				echo "$line"
+				if test -n "$_new_arr"; then
+					unset _new_arr
+					_in_arr=1
+					if test "$RMVTREE=all"; then
+						echo -n "[${line##*- }"
+					else
+						echo -n "${line%- *}  [${line##*- }"
+					fi
+				elif test -n "$_in_arr"; then
+					echo -n ",${line##*- }"
+				else
+					echo "$line"
+				fi
 				parse_line "$line"
 			fi
 			if test -n "$INJECTSUB" -a -n "$INJECTSUBKWD" && startswith "$previndent$more$INJECTSUBKWD:" "$line"; then
@@ -292,6 +327,7 @@ extract_yaml_rec()
 		#if echo "$line" | grep -q "^$previndent$more$1:"; then
 		if startswith "$previndent$more$1:" "$line"; then
 			#echo "$previndent$more# $LNNO: Found keyword $1"
+			yaml_debug 4 "Found $1"
 			if test -n "$REPLACEKEY" -a -z "$2"; then
 				line=$(echo "$line" | sed "s@$1:@$REPLACEKEY:@")
 				set -- "$REPLACEKEY" "$2" "$3"
@@ -317,6 +353,7 @@ extract_yaml_rec()
 				NOTFOUND=0
 				if test -n "$INSERT"; then echo "$INSERT"; parse_line "$INSERT"; fi
 			fi
+			yaml_debug 4 "Now output block"
 			extract_yaml_rec "$previndent$more" "1" "$@"
 			# TODO: Reformat APPEND to match
 			if test -z "$1" -a -n "$APPEND"; then echo "$APPEND"; parse_line "$APPEND"; fi
@@ -326,6 +363,7 @@ extract_yaml_rec()
 		fi
 		# a: OK, just continue to search (without the return above, this is also c)
 	done
+	if test -z "$1" -a -n "$_in_arr"; then echo "]"; unset _in_arr; fi
 	return $NOTFOUND
 }
 
@@ -334,11 +372,7 @@ extract_yaml_rec()
 extract_yaml()
 {
 	local _RET
-	_prevstart=""
-	_in_multiline=""
-	_in_array=""
-	unset _over
-	_VARNM=""
+	reset_vars
 	SRCH=($(echo "$1" | sed 's/\./ /g'))
 	LNNO=0
 	if test -z "${SRCH[0]}"; then _MORE="  "; else _MORE=""; fi
