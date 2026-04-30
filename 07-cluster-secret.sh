@@ -23,7 +23,7 @@ source "$THISDIR/_yaml_parse.sh"
 CL_YAML=~/tmp/clouds-$OS_CLOUD.yaml
 #export OS_CLOUD=openstack
 CLOUDS_YAML=${CLOUDS_YAML:-~/.config/openstack/clouds.yaml}
-CA=$(RMVTREE=1 extract_yaml clouds.$OS_CLOUD.cacert <$CLOUDS_YAML | sed 's/^\s*cacert: //' || true)
+CA=$(RMVTREE=all extract_yaml clouds.$OS_CLOUD.cacert <$CLOUDS_YAML || true)
 OS_CACERT="${OS_CACERT:-$CA}"
 if test -n "$OS_CACERT"; then
 	OS_CACERT=${OS_CACERT/\~/$HOME}
