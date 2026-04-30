@@ -134,9 +134,10 @@ fill_value()
 # Fill in multiline and arrays into old variable
 finalize_var()
 {
-	if test -z "$YAMLASSIGN"; then return; fi
+	if test -z "$YAMLASSIGN" -o -z "$_VARNM"; then return; fi
 	_VARNM="${_VARNM//./_}"
 	_VARNM="${_VARNM//\//__}"
+	yaml_debug 4 "finalize_var $_VARNM"
 	if test -n "$_in_multiline"; then
 		yaml_debug 1 "multiline $VPRE$_VARNM=\"$_in_multiline\""
 		eval $VPRE$_VARNM="\"${_in_multiline//\`/\\\`}\""
@@ -164,6 +165,7 @@ parse_line()
 	if test -z "$YAMLASSIGN"; then return; fi
 	if islinecomment "$1" ; then return; fi
 	#global _VARNM _prevstart
+	yaml_debug 4 "parse_line \"$1\" $_VARNM \"$_prevstart\" \"$_MORE\" \"$_in_mult\"$_MORE\" iline\" \"$_in_array\""
 	# OK several cases
 	# (a) We have more indentation than before: new level
 	# (b) Same indentation as before: another data field
@@ -180,8 +182,8 @@ parse_line()
 	# to determine whether we have a the end, a new element, or continuation
 	# of the content of an array element.
 	# Case (a)
-	if startswith "$_prevstart$_MORE" "$1"; then
-		VAL="${1#$_prevstart$_MORE}"
+	if startswith "$_prevstart ${_MORE# }" "$1"; then
+		VAL="${1#$_prevstart ${_MORE# }}"
 		#yaml_debug 4 "More indentation"
 		if test -n "$_in_multiline"; then
 			if test "$_in_multiline" = "#MARKER"; then
@@ -194,6 +196,8 @@ $VAL"
 			# If we are already in an array, then we continue saving the contents
 			# $_prevstart- denotes next element, $_prevstart$_MORE is continuation
 			if test -n "$_in_array"; then
+				# FIXME
+				yaml_debug 4 "Add elemnt $VAL to array $_VARNM"
 				_in_array="$_in_array
 $VAL"
 			# Beginning of an array (with optional addtl indentation)
@@ -273,13 +277,14 @@ extract_yaml_rec()
 			if ! echo "$line" | grep -q "^$previndent\\(\\s\\|\\-\\)"; then return; fi
 			more=$(echo "$line" | sed "s/^$previndent\\(\\s\\s*\\|\\- *\\)\\S.*\$/\\1/")
 			if test "${more:0:1}" = "-"; then _new_arr=arr; else unset _in_arr; fi
-			if test -z "$_MORE"; then _MORE="$more"; fi
+			if test -z "$_MORE" -a -z "$_new_arr"; then _MORE="$more"; fi
 			yaml_debug 4 "New indent level (line $LNNO): \"$previndent$more\" ($_new_arr)"
 		fi
 		# Detect less indentation than wanted, return
 		#if ! echo "$line" | grep -q "^$previndent$more"; then return; fi
 		if ! startswith "$previndent$more" "$line"; then
 			if test -z "$1" -a -n "$_in_arr"; then echo "]"; unset _in_arr; fi
+			finalize_var
 			yaml_debug 4 "end of block"
 			return
 		fi
@@ -353,7 +358,7 @@ extract_yaml_rec()
 				NOTFOUND=0
 				if test -n "$INSERT"; then echo "$INSERT"; parse_line "$INSERT"; fi
 			fi
-			yaml_debug 4 "Now output block"
+			#yaml_debug 4 "Now output block"
 			extract_yaml_rec "$previndent$more" "1" "$@"
 			# TODO: Reformat APPEND to match
 			if test -z "$1" -a -n "$APPEND"; then echo "$APPEND"; parse_line "$APPEND"; fi
@@ -364,6 +369,7 @@ extract_yaml_rec()
 		# a: OK, just continue to search (without the return above, this is also c)
 	done
 	if test -z "$1" -a -n "$_in_arr"; then echo "]"; unset _in_arr; fi
+	finalize_var
 	return $NOTFOUND
 }
 
