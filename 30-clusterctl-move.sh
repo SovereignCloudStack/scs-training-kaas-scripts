@@ -62,7 +62,26 @@ echo "# Deploying CAPI, CAPO, CSO to $CL_NAME cluster in $CS_NAMESPACE ..."
 ./02-deploy-capi.sh $SET --infrastructure openstack:$CAPO_VER --core cluster-api:$CAPI_VER --control-plane kubeadm:$CAPI_VER --bootstrap kubeadm:$CAPI_VER
 ./03-deploy-cso.sh $SET
 # 04: Secret will be moved
-# 05: CStack will be moved
+# 05: clusterctl move ignore move label on ClusterStack :-(
+CSTKS=$(kubectl get -n $SRC_NS clusterstacks | grep -v '^NAME' | awk '{print $1;}')
+for cstk in $CSTKS; do
+	kubectl get -n $SRC_NS clusterstack $cstk -o yaml | kubectl --kubeconfig "$NEW_KUBECONFIG" apply -f -
+	#if test $? = 0; then kubectl delete -n $SRC_NS clusterstack $cstk; fi
+done
+# Give CSO a chance to run
+let wait=0
+CREL=""
+echo -n "Wait for clusterstackreleases "
+while test $wait -lt 120 -a -z "$CREL"; do
+	CREL=$(kubectl --kubeconfig "$NEW_KUBECONFIG" get -n $SRC_NS clusterstackrelease | grep -v "^NAME" | grep -v "^No resources" | awk '{print $1;}')
+	let wait+=1
+	echo -n "."
+	sleep 1
+done
+echo " $CREL"
+if test -n "$CREL"; then
+	kubectl --kubeconfig "$NEW_KUBECONFIG" wait -n "$SRC_NS" clusterstackrelease $CREL --for condition=ready
+fi
 # clusterctl move
 clusterctl move --to-kubeconfig=$NEW_KUBECONFIG -n $SRC_NS
 # Add cluster-admin of target to ~/.kube/config
