@@ -25,6 +25,8 @@ kind: ClusterStack
 metadata:
   name: openstack-${CS_SERIES}-${CS_MAINVER/./-}
   namespace: "$CS_NAMESPACE"
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
 spec:
   provider: openstack
   name: "$CS_SERIES"

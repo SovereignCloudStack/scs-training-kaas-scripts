@@ -5,6 +5,7 @@ set -e
 unset KUBECONFIG
 if test -n "$1"; then
 	SET="$1"
+	shift
 else
 	if test -e cluster-settings.env; then SET=cluster-settings.env;
 	else echo "You need to pass a cluster-settings.env file as parameter"; exit 1
@@ -17,7 +18,7 @@ export CLUSTER_TOPOLOGY=true
 export EXP_CLUSTER_RESOURCE_SET=true
 export EXP_RUNTIME_SDK=true
 # We must have the management cluster creds in ~/.kub/config
-KUBECONFIG=${KUBECONFIG:-~/.kube/config}
+export KUBECONFIG=${NEW_KUBECONFIG:-~/.kube/config}
 if test ! -r $KUBECONFIG; then
 	echo "ERROR: Must have KUBECONFIG for mgmt cluster in $KUBECONFIG"
 	echo " You can create a management cluster with 01-kind-cluster.sh"
@@ -29,7 +30,11 @@ kubectl apply -f https://github.com/k-orc/openstack-resource-controller/releases
 # Note: For capi <= 1.11.x (v1beta1), we need to stay on old capo 0.12.7
 # clusterctl init --infrastructure openstack:v0.12.7
 # With latest capi (1.12.2), 0.14+ works.
-clusterctl init --infrastructure openstack
+if test -z "$1"; then
+	clusterctl init --infrastructure openstack
+else
+	clusterctl init "$@"
+fi
 # Wait for completion
 kubectl -n capi-system rollout status deployment
 kubectl -n capo-system rollout status deployment
