@@ -170,8 +170,8 @@ retrieve_cluster()
 		CL_VARIABLES="$CL_VARIABLES$item__name=$val;"
 	done
 	CL_VARIABLES="${CL_VARIABLES%;}"
-	echo "Saving settings to cluster-settings-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}-$CL_NAME.env"
-	output > cluster-settings-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}-$CL_NAME.env
+	echo "Saving settings to cluster-settings-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE-$CL_NAME.env"
+	output > cluster-settings-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE-$CL_NAME.env
 }
 
 
@@ -185,8 +185,8 @@ for cluster in $CLUSTERS; do retrieve_cluster "$cluster"; done
 # Also dump clusterStacks that are not in use
 for CSTACK in $CSTACKS; do
 	retrieve_cstack "$CSTACK"
-	echo "Saving ClusterStack $CSTACK to cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env"
-	output_cs > cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env
+	echo "Saving ClusterStack $CSTACK to cluster-stack-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE.env"
+	output_cs > cluster-stack-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE.env
 done
 echo "Saving $CS_NAMESPACE-clouds.yaml"
 output_clouds > $CS_NAMESPACE-clouds.yaml
