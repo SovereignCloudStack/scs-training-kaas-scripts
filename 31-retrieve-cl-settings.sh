@@ -153,21 +153,15 @@ retrieve_cluster()
 	unset CL_VARIABLES
 	NOVARS=${#spec__topology__variables[*]}
 	for VARIDX in $(seq 0 $((NOVARS-1))); do
-		unset item__value
-		VPRE=item__ YAMLASSIGN=1 extract_yaml . < <(echo "${spec__topology__variables[$VARIDX]}") >/dev/null
-		if is_array item__value; then
-			val=${item__value[*]}
-			val="[${val// /,}]"
-		else
-			val="$item__value"
-		fi
-		# TODO: Check for defaults instead and filter out
+		NAME=$(RMVTREE=all extract_yaml name < <(echo "${spec__topology__variables[$VARIDX]}"))
+		VAL=$(RMVTREE=all extract_yaml value < <(echo "${spec__topology__variables[$VARIDX]}"))
+		# Check for defaults instead and filter out
 		#if test -z "$val" -o "$val" = "[]"; then continue; fi
-		defnm="var__${item__name}__default"
+		defnm="var__${NAME}__default"
 		eval def="\${$defnm}"
-		#echo "default for $item__name ($defnm): $def, value $val" 1>&2
-		if test "$val" == "$def" || test "$val" == "" -a "$def" == "{}" || test "$val" == "()" -a "$def" == "[]"; then continue; fi
-		CL_VARIABLES="$CL_VARIABLES$item__name=$val;"
+		#echo "default for $NAME ($defnm): $def, value $VAL" 1>&2
+		if test "$VAL" == "$def" || test "$VAL" == "" -a "$def" == "{}" || test "$NAME" = "identityRef"; then continue; fi
+		CL_VARIABLES="$CL_VARIABLES$NAME=$VAL;"
 	done
 	CL_VARIABLES="${CL_VARIABLES%;}"
 	echo "Saving settings to cluster-settings-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE-$CL_NAME.env"
