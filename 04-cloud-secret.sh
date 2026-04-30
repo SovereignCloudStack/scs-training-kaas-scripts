@@ -28,7 +28,7 @@ CLOUDS_YAML=${CLOUDS_YAML:-~/.config/openstack/clouds.yaml}
 # - The cloud should be called openstack
 # - We will detect a cacert in there and pass it to the helper chart
 if ! test -r "$CLOUDS_YAML"; then echo "clouds.yaml $CLOUDS_YAML not readable"; exit 2; fi
-CA=$(RMVTREE=1 extract_yaml clouds.$OS_CLOUD.cacert <$CLOUDS_YAML | sed 's/^\s*cacert: //' || true)
+CA=$(RMVTREE=all extract_yaml clouds.$OS_CLOUD.cacert <$CLOUDS_YAML || true)
 OS_CACERT="${OS_CACERT:-$CA}"
 # TODO:
 # We could generate an unrestricted AppCred here for CAPO/ORC
