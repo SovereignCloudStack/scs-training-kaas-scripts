@@ -64,13 +64,20 @@ yaml_debug()
 # tag1[0]="{tag2:val,tag3:val}", tag1[1]="{tag2:val4,tag3:val5}"
 # For multiline arrays, basically do a multiline string handling
 
-_VARNM=""
-_prevstart=""
-_MORE=""
-_in_multiline=""
-_in_array=""
-unset _new_arr
-unset _in_arr
+reset_vars()
+{
+	_prevstart=""
+	_in_multiline=""
+	_in_array=""
+	unset _over
+	_VARNM=""
+	unset PREVASSIGN
+	unset _in_arr
+	unset _new_arr
+	_MORE=""
+}
+
+reset_vars
 
 fill_value()
 {
@@ -356,6 +363,7 @@ extract_yaml_rec()
 		fi
 		# a: OK, just continue to search (without the return above, this is also c)
 	done
+	if test -z "$1" -a -n "$_in_arr"; then echo "]"; unset _in_arr; fi
 	return $NOTFOUND
 }
 
@@ -364,14 +372,7 @@ extract_yaml_rec()
 extract_yaml()
 {
 	local _RET
-	_prevstart=""
-	_in_multiline=""
-	_in_array=""
-	unset _over
-	_VARNM=""
-	unset PREVASSIGN
-	unset _in_arr
-	unset _new_arr
+	reset_vars
 	SRCH=($(echo "$1" | sed 's/\./ /g'))
 	LNNO=0
 	if test -z "${SRCH[0]}"; then _MORE="  "; else _MORE=""; fi
