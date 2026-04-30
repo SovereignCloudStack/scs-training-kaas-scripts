@@ -4,6 +4,7 @@ set -e
 mkdir -p ~/tmp
 # We need settings (not really yet)
 unset KUBECONFIG
+export KUBECONFIG=${NEW_KUBECONFIG:-~/.kube/config}
 if test -n "$1"; then
 	SET="$1"
 else
