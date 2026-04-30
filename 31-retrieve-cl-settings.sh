@@ -94,6 +94,25 @@ retrieve_cstack()
 	retrieve_clouds_yaml
 }
 
+# Retrieve cluster class defaults
+# $1: Cluster Class
+# Returns var__$NAME__default=$DEFAULT
+retrieve_cclass_defaults()
+{
+	#echo "VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml | sed \"s@\\\`@\'@g\")"
+	VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml | sed "s@\`@\'@g") >/dev/null
+	#_yaml_debuglevel=4 VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml) # | sed "s@\`@\'@g") >/dev/null
+	if ! is_array ccls__spec__variables; then echo "Error: No CClass variables for $CS_NAMESPACE/$1 ($ccls__name)"; return 1; fi
+	NOVAR=${#ccls__spec__variables[*]}
+	for varidx in $(seq 0 $((NOVAR-1))); do
+		NAME=$(echo "${ccls__spec__variables[$varidx]}" | RMVTREE=all extract_yaml name)
+		DEFAULT=$(echo "${ccls__spec__variables[$varidx]}" | RMVTREE=all extract_yaml schema.openAPIV3Schema.default)
+		if test -z "$DEFAULT"; then continue; fi
+		#echo "$varidx: var__${NAME}__default=\"$DEFAULT\""
+		eval var__${NAME}__default="\"$DEFAULT\""
+	done
+}
+
 # Look at Cluster object $1, return CL_NAME, CL_PODCIDR, CL_SVCCIDR, ....
 # Get CS_SERIES, CS_MAINVER, CS_VERSION via retrieve_cstack
 retrieve_cluster()
@@ -130,24 +149,23 @@ retrieve_cluster()
 	done
 	CL_WRKRNODES="${CL_WRKRNODES%,}"
 	# CL_VARIABLES
+	retrieve_cclass_defaults "$CCLASS"
 	unset CL_VARIABLES
 	NOVARS=${#spec__topology__variables[*]}
 	for VARIDX in $(seq 0 $((NOVARS-1))); do
-		unset item__value
-		VPRE=item__ YAMLASSIGN=1 extract_yaml . < <(echo "${spec__topology__variables[$VARIDX]}") >/dev/null
-		if is_array item__value; then
-			val=${item__value[*]}
-			val="[${val// /,}]"
-		else
-			val="$item__value"
-		fi
-		# TODO: Check for defaults instead and filter out
-		if test -z "$val" -o "$val" = "[]"; then continue; fi
-		CL_VARIABLES="$CL_VARIABLES$item__name=$val;"
+		NAME=$(RMVTREE=all extract_yaml name < <(echo "${spec__topology__variables[$VARIDX]}"))
+		VAL=$(RMVTREE=all extract_yaml value < <(echo "${spec__topology__variables[$VARIDX]}"))
+		# Check for defaults instead and filter out
+		#if test -z "$val" -o "$val" = "[]"; then continue; fi
+		defnm="var__${NAME}__default"
+		eval def="\${$defnm}"
+		#echo "default for $NAME ($defnm): $def, value $VAL" 1>&2
+		if test "$VAL" == "$def" || test "$VAL" == "" -a "$def" == "{}" || test "$NAME" = "identityRef"; then continue; fi
+		CL_VARIABLES="$CL_VARIABLES$NAME=$VAL;"
 	done
 	CL_VARIABLES="${CL_VARIABLES%;}"
-	echo "Saving settings to cluster-settings-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}-$CL_NAME.env"
-	output > cluster-settings-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}-$CL_NAME.env
+	echo "Saving settings to cluster-settings-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE-$CL_NAME.env"
+	output > cluster-settings-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE-$CL_NAME.env
 }
 
 
@@ -161,8 +179,8 @@ for cluster in $CLUSTERS; do retrieve_cluster "$cluster"; done
 # Also dump clusterStacks that are not in use
 for CSTACK in $CSTACKS; do
 	retrieve_cstack "$CSTACK"
-	echo "Saving ClusterStack $CSTACK to cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env"
-	output_cs > cluster-stack-$CS_SERIES-$CS_NAMESPACE-${CS_MAINVER/./-}.env
+	echo "Saving ClusterStack $CSTACK to cluster-stack-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE.env"
+	output_cs > cluster-stack-$CS_SERIES-${CS_MAINVER/./-}-$CS_NAMESPACE.env
 done
 echo "Saving $CS_NAMESPACE-clouds.yaml"
 output_clouds > $CS_NAMESPACE-clouds.yaml
