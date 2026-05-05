@@ -91,6 +91,6 @@ NEWCTX=$(KUBECONFIG=$NEW_KUBECONFIG kubectl config get-contexts | grep '^*' | aw
 KUBECONFIG="$HOME/.kube/config.old:$NEW_KUBECONFIG" kubectl config view --flatten > ~/.kube/config
 kubectl config set-context "$OLDCTX"
 # Output message how to select it ...
-echo "Use kubectl set-context $NEWCTX to switch to using new mgmt cluster"
-echo "Use kubectl set-context $OLDCTX to switch back to old mgmt cluster"
+echo "Use kubectl config use-context $NEWCTX to switch to using new mgmt cluster"
+echo "Use kubectl config use-context $OLDCTX to switch back to old mgmt cluster"
 
