@@ -79,11 +79,16 @@ reset_vars()
 
 reset_vars
 
+# Set value
+# $1 => line
 fill_value()
 {
 	# global _VARNM _in_array _in_multiline
 	local EXP NM VAL
 	EXP=${1#$_prevstart}
+	# Escape shell calling
+	EXP="${EXP//\$/\\\$}"
+	EXP="${EXP//\`/\\\`}"
 	NM=${EXP%%:*}
 	NM=${NM//-/_}
 	# First element without leading __
@@ -97,9 +102,9 @@ fill_value()
 	unset PREVASSIGN
 	# Do we have a direct value
 	if test "${EXP%%:*}" != "${EXP%:}"; then
+		# FIXME: Don't do this on untrusted input
 		VAL="${EXP#*:}"
 		VAL="${VAL# }"
-		# FIXME: Don't do this on untrusted input
 		# Dicts
 		if test "${VAL:0:1}" = "{"; then
 			 while IFS=": " read k p; do
@@ -110,7 +115,7 @@ fill_value()
 		elif test "${VAL:0:1}" = "["; then
 			# FIXME: [ { , }, { , } ] won't be handled correctly
 			# Ideas: sed 's/\({[^}]*}\)/\1/' extracts these, temporarily replace , with :: or so
-			yaml_debug 1 "arr $VPRE${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))"
+			yaml_debug  "arr $VPRE${_VARNM}=($(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g'))"
 			eval $VPRE$_VARNM="\"("$(echo "$VAL" | sed -e 's/\[/"/' -e 's/\]/"/' -e 's/, */" "/g')")\""
 		# Multiline
 		elif test "${VAL:0:1}" = "|"; then
@@ -140,7 +145,7 @@ finalize_var()
 	yaml_debug 4 "finalize_var $_VARNM"
 	if test -n "$_in_multiline"; then
 		yaml_debug 1 "multiline $VPRE$_VARNM=\"$_in_multiline\""
-		eval $VPRE$_VARNM="\"${_in_multiline//\`/\\\`}\""
+		eval $VPRE$_VARNM="\"${_in_multiline}\""
 		_in_multiline=""
 	elif test -n "$_in_array"; then
 		yaml_debug 1 "array $VPRE$_VARNM=($_in_array\")"
@@ -184,6 +189,8 @@ parse_line()
 	# Case (a)
 	if startswith "$_prevstart ${_MORE# }" "$1"; then
 		VAL="${1#$_prevstart ${_MORE# }}"
+		VAL="${VAL//\$/\\\$}"
+		VAL="${VAL//\`/\\\`}"
 		#yaml_debug 4 "More indentation"
 		if test -n "$_in_multiline"; then
 			if test "$_in_multiline" = "#MARKER"; then

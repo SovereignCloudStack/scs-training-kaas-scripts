@@ -100,7 +100,7 @@ retrieve_cstack()
 retrieve_cclass_defaults()
 {
 	#echo "VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml | sed \"s@\\\`@\'@g\")"
-	VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml | sed "s@\`@\'@g") >/dev/null
+	VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml) >/dev/null
 	#_yaml_debuglevel=4 VPRE=ccls__ YAMLASSIGN=1 extract_yaml spec < <(kubectl get -n $CS_NAMESPACE clusterClasses $1 -o yaml) # | sed "s@\`@\'@g") >/dev/null
 	if ! is_array ccls__spec__variables; then echo "Error: No CClass variables for $CS_NAMESPACE/$1 ($ccls__name)"; return 1; fi
 	NOVAR=${#ccls__spec__variables[*]}
