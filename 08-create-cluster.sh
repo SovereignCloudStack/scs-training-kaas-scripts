@@ -81,7 +81,7 @@ if test -n "$CL_VARIABLES"; then
 	# echo "$CL_VARS"
 fi
 #  We need to make them visible!
-cat > ~/tmp/cluster-$CL_NAME.yaml <<EOF
+cat > ~/tmp/$CS_NAMESPACE-$CL_NAME.yaml <<EOF
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
@@ -110,16 +110,16 @@ declare -i NO=0
 OLDIFS="$IFS"
 IFS=","
 for wrkr in $CL_WRKRNODES; do
-	cat >> ~/tmp/cluster-$CL_NAME.yaml <<EOF2
+	cat >> ~/tmp/$CS_NAMESPACE-$CL_NAME.yaml <<EOF2
         - class: default-worker
           name: md-$NO
           replicas: ${wrkr##*:}
 EOF2
 	if test "${wrkr##*:}" != "$wrkr"; then
-		echo "          failureDomain: ${wrkr%:*}" >> ~/tmp/cluster-$CL_NAME.yaml
+		echo "          failureDomain: ${wrkr%:*}" >> ~/tmp/$CS_NAMESPACE-$CL_NAME.yaml
 	fi
 	let NO+=1
 done
 IFS="$OLDIFS"
-echo "$CL_VARS" >> ~/tmp/cluster-$CL_NAME.yaml
-kubectl apply -f ~/tmp/cluster-$CL_NAME.yaml
+echo "$CL_VARS" >> ~/tmp/$CS_NAMESPACE-$CL_NAME.yaml
+kubectl apply -f ~/tmp/$CS_NAMESPACE-$CL_NAME.yaml
