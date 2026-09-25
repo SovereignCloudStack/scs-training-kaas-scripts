@@ -15,12 +15,14 @@ fi
 # Read settings -- make sure you can trust it
 source "$SET"
 # Use workload cluster
+ARCH=$(uname -m)
+ARCH="${ARCH/x86_64/amd64}"
 export KUBECONFIG=~/.kube/$CS_NAMESPACE.$CL_NAME
 # Install sonobuoy into ~/bin/ if needed
 if ! type -p "sonobuoy" >/dev/null 2>&1; then
 	cd ~
-	curl -LO https://github.com/vmware-tanzu/sonobuoy/releases/download/v0.57.3/sonobuoy_0.57.3_linux_amd64.tar.gz
-	tar xvzf sonobuoy_0.57.3_linux_amd64.tar.gz
+	curl -LO https://github.com/vmware-tanzu/sonobuoy/releases/download/v0.57.5/sonobuoy_0.57.5_linux_$ARCH.tar.gz
+	tar xvzf sonobuoy_0.57.5_linux_$ARCH.tar.gz
 	mkdir -p bin
 	sudo mv sonobuoy bin
 	if ! echo "$PATH" | grep "$HOME/bin" >/dev/null; then export PATH="$PATH:~/bin"; fi
