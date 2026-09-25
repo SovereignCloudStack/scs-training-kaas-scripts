@@ -281,8 +281,8 @@ extract_yaml_rec()
 		if islineempty "$line"; then continue; fi
 		# First line of new block: We need more indentation ...
 		if test "$more" = "1"; then
-			if ! echo "$line" | grep -q "^$previndent\\(\\s\\|\\-\\)"; then return; fi
-			more=$(echo "$line" | sed "s/^$previndent\\(\\s\\s*\\|\\- *\\)\\S.*\$/\\1/")
+			if ! echo "$line" | grep -q "^$previndent\\(\\s\\|-\\)"; then return; fi
+			more=$(echo "$line" | sed "s/^$previndent\\(\\s\\s*\\|- *\\)\\S.*\$/\\1/")
 			if test "${more:0:1}" = "-"; then _new_arr=arr; else unset _in_arr; fi
 			if test -z "$_MORE" -a -z "$_new_arr"; then _MORE="$more"; fi
 			yaml_debug 4 "New indent level (line $LNNO): \"$previndent$more\" ($_new_arr)"
