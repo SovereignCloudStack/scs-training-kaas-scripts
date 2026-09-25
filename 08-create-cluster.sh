@@ -14,7 +14,6 @@ source "$SET"
 unset KUBECONFIG
 # Sanity checks 
 if test -z "$CS_MAINVER"; then echo "Configure CS_MAINVER"; exit 2; fi
-if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
 if test -z "$CS_SERIES"; then echo "Configure CS_SERIES, default to scs2"; CS_SERIES=scs2; fi
 if test -z "$CL_PATCHVER"; then echo "Configure CL_PATCHVER"; exit 4; fi
 if test -z "$CL_NAME"; then echo "Configure CL_NAME"; exit 5; fi
@@ -23,19 +22,41 @@ if test -z "$CL_SVCCIDR"; then echo "Configure CL_SVCCIDR"; exit 7; fi
 if test -z "$CL_CTRLNODES"; then echo "Configure CL_CTRLNODES"; exit 8; fi
 if test -z "$CL_WRKRNODES"; then echo "Configure CL_WRKRNODES"; exit 9; fi
 # Create Cluster yaml
+# Fill in CS_VERSIONS if needed
+REPO="registry.scs.community/kaas/cluster-stacks"
+if test "$CS_VERSION" = "all"; then
+	echo "# Info: CS_VERSION not specified, retrieve from scs registry with oras ..."
+	CS_VERSION=$(oras repo tags "$REPO" | tail -n +2 | grep "openstack-$CS_SERIES-${CS_MAINVER/./-}" | sed "s@openstack\-$CS_SERIES\\-${CS_MAINVER/./-}\-@@g" | tr "\n" "," | sed -e 's@git-@git.@g' -e 's@sha-@sha.@g')
+	CS_VERSION="[ ${CS_VERSION%,} ]"
+	echo "# Info: CS_VERSION set to $CS_VERSION"
+elif test -z "$CS_VERSION"; then
+	echo "# Info: CS_VERSION not specified, retrieve from scs registry with oras ..."
+	CS_VERSION=$(oras repo tags "$REPO" | tail -n +2 | grep "openstack-$CS_SERIES-${CS_MAINVER/./-}" | sed "s@openstack\-$CS_SERIES\\-${CS_MAINVER/./-}\-@@g" | grep -v git | grep -v sha | tr "\n" ",")
+	CS_VERSION="[ ${CS_VERSION%,} ]"
+	echo "# Info: CS_VERSION set to $CS_VERSION"
+fi
+if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
 # If we have an array, match what CS_VERSION we want to wait for
 if test "${CS_VERSION:0:1}" = "["; then
 	VERSIONS=$(kubectl get clusterstackreleases -n $CS_NAMESPACE -o "custom-columns=NAME:.metadata.name,K8SVER:.status.kubernetesVersion")
+	CVERSIONS=()
 	while read csnm k8sver; do
 		if test "$csnm" = "NAME"; then continue; fi
 		if test "$k8sver" = "v$CL_PATCHVER"; then
 			CS_VERSION="v${csnm#openstack-${CS_SERIES}-?-??-v}"
 			CS_VERSION="${CS_VERSION//-/.}"
 			CS_VERSION="${CS_VERSION/./-}"
-			break
+			CVERSIONS[${#CVERSIONS[*]}]="$CS_VERSION"
+			#break
 		fi
 	done < <(echo "$VERSIONS")
-	if test "${CS_VERSION:0:1}" = "["; then echo "No clusterstackrelease with v$CL_PATCHVER found"; exit 10; fi
+	if test -z "$CVERSIONS"; then
+		echo "No clusterstackrelease with v$CL_PATCHVER found"
+	fi
+	# Prefer highest
+	#echo "# DEBUG: matching versions ${CVERSIONS[*]}"
+	CS_VERSION=$(echo "${CVERSIONS[*]}" | tr ' ' '\n' | sort -r | head -n1)
+	#echo "# DEBUG: Select $CS_VERSION" 
 fi
 # TODO: There are a number of variables that allow us to set things like
 #  flavors, disk sizes, loadbalancer types, etc.

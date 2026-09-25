@@ -13,6 +13,22 @@ source "$THISDIR/_yaml_parse.sh"
 unset KUBECONFIG
 CS_NAMESPACE="$1"
 
+CS_SERIES=${CS_SERIES:-scs2}
+# Fill in CS_VERSIONS if needed
+REPO="registry.scs.community/kaas/cluster-stacks"
+if test "$CS_VERSION" = "all"; then
+	echo "# Info: CS_VERSION not specified, retrieve from scs registry with oras ..."
+	CS_VERSION=$(oras repo tags "$REPO" | tail -n +2 | grep "openstack-$CS_SERIES-${CS_MAINVER/./-}" | sed "s@openstack\-$CS_SERIES\\-${CS_MAINVER/./-}\-@@g" | tr "\n" "," | sed -e 's@git-@git.@g' -e 's@sha-@sha.@g')
+	CS_VERSION="[ ${CS_VERSION%,} ]"
+	echo "# Info: CS_VERSION set to $CS_VERSION"
+elif test -z "$CS_VERSION"; then
+	echo "# Info: CS_VERSION not specified, retrieve from scs registry with oras ..."
+	CS_VERSION=$(oras repo tags "$REPO" | tail -n +2 | grep "openstack-$CS_SERIES-${CS_MAINVER/./-}" | sed "s@openstack\-$CS_SERIES\\-${CS_MAINVER/./-}\-@@g" | grep -v git | grep -v sha | tr "\n" ",")
+	CS_VERSION="[ ${CS_VERSION%,} ]"
+	echo "# Info: CS_VERSION set to $CS_VERSION"
+fi
+if test -z "$CS_VERSION"; then echo "Configure CS_VERSION"; exit 3; fi
+
 # Remove one item from a newline separated list
 # $1: item to remove
 # $@: list
