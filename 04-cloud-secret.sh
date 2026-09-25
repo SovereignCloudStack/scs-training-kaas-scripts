@@ -40,13 +40,21 @@ if test -r "$SEC_YAML"; then SECRETS=$(RMVTREE=1 RMVCOMMENT=1 extract_yaml cloud
 if test -n "$SECRETS"; then
 	echo "# Appending secrets from secure.yaml to clouds.yaml"
 fi
+#
+ret_pipe0()
+{
+	return ${PIPESTATUS[0]}
+}
+#
 # Determine whether we need to add project ID
 RAW_CLOUD=$(extract_yaml clouds.$OS_CLOUD <$CLOUDS_YAML)
 if ! echo "$RAW_CLOUD" | grep -q '^\s*project_id:' && echo "$RAW_CLOUD" | grep -q '^\s*project_name:'; then
 	# Need openstack CLI for this
 	echo "# Using openstack tools to determine project_id ..."
 	PROJECT_NAME=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\s*project_name: //')
-	PROJECT_ID=$(openstack project show $PROJECT_NAME -c id -f value | tr -d '\r')
+	# If we don't have privileges to show the project, extract ID from cinder EP
+	PROJECT_ID=$(openstack project show $PROJECT_NAME -c id -f value | tr -d '\r'; ret_pipe0) ||
+		PROJECT_ID=$(openstack catalog list -f json | jq '.[] | select(.Name == "cinderv3") | .Endpoints[] | select(.interface == "public") | .url' | tr -d '"' | sed 's@^.*/@@')
 	INDENT=$(echo "$RAW_CLOUD" | grep '^\s*project_name:' | sed 's/^\(\s*\)project_name:.*$/\1/')
 	SECRETS=$(echo -en "${INDENT}project_id: $PROJECT_ID\n$SECRETS")
 	echo "# Appending project_id: $PROJECT_ID to clouds.yaml"
