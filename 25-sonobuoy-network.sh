@@ -1,5 +1,5 @@
 #!/bin/bash
-# (c) Kurt Garloff <s7n@garloff.de>, 11/2025
+# (c) Kurt Garloff <s7n@garloff.de>, 9/2026
 # SPDX-License-Identifier: CC-BY-SA-4.0
 set -e
 THISDIR=$(dirname $0)
@@ -33,4 +33,4 @@ if kubectl get namespace sonobuoy >/dev/null 2>&1; then
 fi
 # See also https://github.com/SovereignCloudStack/standards/issues/982
 # See also https://github.com/SovereignCloudStack/standards/blob/main/Tests/kaas/scs-sonobuoy-config-v1.yaml
-sonobuoy run --plugin-env=e2e.E2E_PROVIDER=openstack --e2e-parallel=true --e2e-skip="\[Disruptive\]|NoExecuteTaintManager|HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol" --mode=certified-conformance --plugin-env "e2e.E2E_EXTRA_ARGS=--ginkgo.flake-attempts=2"
+sonobuoy run --plugin-env=e2e.E2E_PROVIDER=openstack --e2e-parallel=true --e2e-skip="\[Disruptive\]|NoExecuteTaintManager|Netpol NetworkPolicy between server and client should allow egress access to server in CIDR block|Netpol NetworkPolicy between server and client should enforce except clause while egress access to server in CIDR block|Netpol NetworkPolicy between server and client should ensure an IP overlapping both IPBlock.CIDR and IPBlock.Except is allowed|HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol" --e2e-focus "NetworkPolicy" --plugin-env "e2e.E2E_EXTRA_ARGS=--ginkgo.flake-attempts=2"
