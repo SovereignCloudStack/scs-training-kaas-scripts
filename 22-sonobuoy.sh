@@ -33,4 +33,4 @@ if kubectl get namespace sonobuoy >/dev/null 2>&1; then
 fi
 # See also https://github.com/SovereignCloudStack/standards/issues/982
 # See also https://github.com/SovereignCloudStack/standards/blob/main/Tests/kaas/scs-sonobuoy-config-v1.yaml
-sonobuoy run --plugin-env=e2e.E2E_PROVIDER=openstack --e2e-parallel=true --e2e-skip="\[Disruptive\]|NoExecuteTaintManager|HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol" --mode=certified-conformance --plugin-env "e2e.E2E_EXTRA_ARGS=--ginkgo.flake-attempts=2"
+sonobuoy run --plugin-env=e2e.E2E_PROVIDER=openstack --e2e-parallel=true --e2e-skip="\[Disruptive\]|NoExecuteTaintManager|HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol" --plugin-env "e2e.E2E_EXTRA_ARGS=--ginkgo.flake-attempts=2" #--mode=certified-conformance -
